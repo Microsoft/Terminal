@@ -524,6 +524,7 @@ namespace winrt::TerminalApp::implementation
         // Add the new tab to the list of our tabs.
         auto newTabImpl = winrt::make_self<Tab>(profileGuid, term);
         _tabs.Append(*newTabImpl);
+        //newTabImpl->BindEventHandlers();
 
         // Hookup our event handlers to the new terminal
         _RegisterTerminalEvents(term, *newTabImpl);
@@ -547,6 +548,17 @@ namespace winrt::TerminalApp::implementation
                 page->_UpdateTitle(*tab);
             }
         });
+
+        /* newTabImpl->RootPaneChanged([weakTab, weakThis{ get_weak() }]() {
+            auto page{ weakThis.get() };
+            auto tab{ weakTab.get() };
+
+            if (page && tab)
+            {
+                page->_tabContent.Children().Clear();
+                page->_tabContent.Children().Append(tab->GetRootElement());
+            }
+        });*/
 
         auto tabViewItem = newTabImpl->GetTabViewItem();
         _tabView.TabItems().Append(tabViewItem);
@@ -871,9 +883,6 @@ namespace winrt::TerminalApp::implementation
         // Add an event handler when the terminal wants to paste data from the Clipboard.
         term.PasteFromClipboard({ this, &TerminalPage::_PasteFromClipboardHandler });
 
-        // Bind Tab events to the TermControl and the Tab's Pane
-        hostingTab.BindEventHandlers(term);
-
         // Don't capture a strong ref to the tab. If the tab is removed as this
         // is called, we don't really care anymore about handling the event.
         term.TitleChanged([weakTab{ hostingTab.get_weak() }, weakThis{ get_weak() }](auto newTitle) {
@@ -1048,7 +1057,6 @@ namespace winrt::TerminalApp::implementation
     // Method Description:
     // - Split the focused pane either horizontally or vertically, and place the
     //   given TermControl into the newly created pane.
-    // - If splitType == SplitState::None, this method does nothing.
     // Arguments:
     // - splitType: one value from the TerminalApp::SplitState enum, indicating how the
     //   new pane should be split from its parent.
@@ -1060,12 +1068,6 @@ namespace winrt::TerminalApp::implementation
                                   const TerminalApp::SplitType splitMode,
                                   const winrt::TerminalApp::NewTerminalArgs& newTerminalArgs)
     {
-        // Do nothing if we're requesting no split.
-        if (splitType == TerminalApp::SplitState::None)
-        {
-            return;
-        }
-
         auto indexOpt = _GetFocusedTabIndex();
 
         // Do nothing if for some reason, there's no tab in focus. We don't want to crash.
@@ -1114,7 +1116,7 @@ namespace winrt::TerminalApp::implementation
 
     // Method Description:
     // - Attempt to move a separator between panes, as to resize each child on
-    //   either size of the separator. See Pane::ResizePane for details.
+    //   either size of the separator. See Pane::ResizeChild for details.
     // - Moves a separator on the currently focused tab.
     // Arguments:
     // - direction: The direction to move the separator in.

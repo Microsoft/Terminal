@@ -17,18 +17,17 @@ namespace TerminalApp
     enum Direction
     {
         None = 0,
+        Up,
+        Down,
         Left,
         Right,
-        Up,
-        Down
     };
 
     enum SplitState
     {
-        Automatic = -1,
-        None = 0,
-        Vertical = 1,
-        Horizontal = 2
+        Vertical,
+        Horizontal,
+        Automatic
     };
 
     enum SplitType

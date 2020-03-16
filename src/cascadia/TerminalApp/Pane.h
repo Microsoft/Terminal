@@ -19,155 +19,137 @@
 // - Mike Griese (zadjii-msft) 16-May-2019
 
 #pragma once
-#include <winrt/Microsoft.Terminal.TerminalControl.h>
 #include <winrt/TerminalApp.h>
 #include "../../cascadia/inc/cppwinrt_utils.h"
 
-enum class Borders : int
-{
-    None = 0x0,
-    Top = 0x1,
-    Bottom = 0x2,
-    Left = 0x4,
-    Right = 0x8
-};
-DEFINE_ENUM_FLAG_OPERATORS(Borders);
+class LeafPane;
+class ParentPane;
 
-class Pane : public std::enable_shared_from_this<Pane>
+class Pane
 {
 public:
-    Pane(const GUID& profile,
-         const winrt::Microsoft::Terminal::TerminalControl::TermControl& control,
-         const bool lastFocused = false);
+    virtual ~Pane() = default;
+    Pane(const Pane&) = delete;
+    Pane(Pane&&) = delete;
+    Pane& operator=(const Pane&) = delete;
+    Pane& operator=(Pane&&) = delete;
 
-    std::shared_ptr<Pane> GetActivePane();
-    winrt::Microsoft::Terminal::TerminalControl::TermControl GetTerminalControl();
-    std::optional<GUID> GetFocusedProfile();
+    winrt::Windows::UI::Xaml::Controls::Grid GetRootElement() const;
 
-    winrt::Windows::UI::Xaml::Controls::Grid GetRootElement();
+    // Method Description:
+    // - Searches for last focused pane in the pane tree and returns it. Returns
+    //   nullptr, if the pane is not last focused and doesn't have any child
+    //   that is.
+    // - This Pane's control might not currently be focused, if the tab itself is
+    //   not currently focused.
+    // Return Value:
+    // - nullptr if we're a leaf and unfocused, or no children were marked
+    //   `_lastActive`, else returns this
+    virtual std::shared_ptr<LeafPane> FindActivePane() = 0;
 
-    bool WasLastFocused() const noexcept;
-    void UpdateVisuals();
-    void ClearActive();
-    void SetActive();
+    // Method Description:
+    // - Invokes the given action on each descendant leaf pane, which may be just this pane if
+    //   it is a leaf.
+    // Arguments:
+    // - action: function to invoke on leaves. Parameters:
+    //      * pane: the leaf pane on which the action is invoked
+    // Return Value:
+    // - <none>
+    virtual void PropagateToLeaves(std::function<void(LeafPane&)> action) = 0;
 
-    void UpdateSettings(const winrt::Microsoft::Terminal::Settings::TerminalSettings& settings,
-                        const GUID& profile);
-    void ResizeContent(const winrt::Windows::Foundation::Size& newSize);
-    void Relayout();
-    bool ResizePane(const winrt::TerminalApp::Direction& direction);
-    bool NavigateFocus(const winrt::TerminalApp::Direction& direction);
+    // Method Description:
+    // - Invokes the given action on each descendant leaf pane that touches the given edge of this
+    //   pane. In case this is a leaf pane, it is assumed that it touches every edge of itself.
+    // Arguments:
+    // - action: function to invoke on leaves. Parameters:
+    //      * pane: the leaf pane on which the action is invoked
+    // Return Value:
+    // - <none>
+    virtual void PropagateToLeavesOnEdge(const winrt::TerminalApp::Direction& edge,
+                                         std::function<void(LeafPane&)> action) = 0;
 
-    bool CanSplit(winrt::TerminalApp::SplitState splitType);
-    std::pair<std::shared_ptr<Pane>, std::shared_ptr<Pane>> Split(winrt::TerminalApp::SplitState splitType,
-                                                                  const GUID& profile,
-                                                                  const winrt::Microsoft::Terminal::TerminalControl::TermControl& control);
+    // Method Description:
+    // - Attempts to update the settings of this pane or any children of this pane.
+    //   * If this pane is a leaf, and our profile guid matches the parameter, then
+    //     we'll apply the new settings to our control.
+    //   * If we're not a leaf, we'll recurse on our children.
+    // Arguments:
+    // - settings: The new TerminalSettings to apply to any matching controls
+    // - profile: The GUID of the profile these settings should apply to.
+    // Return Value:
+    // - <none>
+    virtual void UpdateSettings(const winrt::Microsoft::Terminal::Settings::TerminalSettings& settings,
+                                const GUID& profile) = 0;
+
+    virtual void ResizeContent(const winrt::Windows::Foundation::Size& newSize) = 0;
+    virtual void Relayout() = 0;
     float CalcSnappedDimension(const bool widthOrHeight, const float dimension) const;
 
-    void Shutdown();
-    void Close();
-
-    WINRT_CALLBACK(Closed, winrt::Windows::Foundation::EventHandler<winrt::Windows::Foundation::IInspectable>);
-    DECLARE_EVENT(GotFocus, _GotFocusHandlers, winrt::delegate<std::shared_ptr<Pane>>);
-
-private:
+protected:
     struct SnapSizeResult;
     struct SnapChildrenSizeResult;
     struct LayoutSizeNode;
 
     winrt::Windows::UI::Xaml::Controls::Grid _root{};
-    winrt::Windows::UI::Xaml::Controls::Border _border{};
-    winrt::Microsoft::Terminal::TerminalControl::TermControl _control{ nullptr };
-    static winrt::Windows::UI::Xaml::Media::SolidColorBrush s_focusedBorderBrush;
-    static winrt::Windows::UI::Xaml::Media::SolidColorBrush s_unfocusedBorderBrush;
 
-    std::shared_ptr<Pane> _firstChild{ nullptr };
-    std::shared_ptr<Pane> _secondChild{ nullptr };
-    winrt::TerminalApp::SplitState _splitState{ winrt::TerminalApp::SplitState::None };
-    float _desiredSplitPosition;
+    Pane();
 
-    bool _lastActive{ false };
-    std::optional<GUID> _profile{ std::nullopt };
-    winrt::event_token _connectionStateChangedToken{ 0 };
-    winrt::event_token _firstClosedToken{ 0 };
-    winrt::event_token _secondClosedToken{ 0 };
-
-    winrt::Windows::UI::Xaml::UIElement::GotFocus_revoker _gotFocusRevoker;
-
-    std::shared_mutex _createCloseLock{};
-
-    Borders _borders{ Borders::None };
-
-    bool _IsLeaf() const noexcept;
-    bool _HasFocusedChild() const noexcept;
-    void _SetupChildCloseHandlers();
-
-    bool _CanSplit(winrt::TerminalApp::SplitState splitType);
-    std::pair<std::shared_ptr<Pane>, std::shared_ptr<Pane>> _Split(winrt::TerminalApp::SplitState splitType,
-                                                                   const GUID& profile,
-                                                                   const winrt::Microsoft::Terminal::TerminalControl::TermControl& control);
-
-    void _CreateRowColDefinitions(const winrt::Windows::Foundation::Size& rootSize);
-    void _CreateSplitContent();
-    void _ApplySplitDefinitions();
-    void _UpdateBorders();
-
-    bool _Resize(const winrt::TerminalApp::Direction& direction);
-    bool _NavigateFocus(const winrt::TerminalApp::Direction& direction);
-
-    void _CloseChild(const bool closeFirst);
-    winrt::fire_and_forget _CloseChildRoutine(const bool closeFirst);
-
-    void _FocusFirstChild();
-    void _ControlConnectionStateChangedHandler(const winrt::Microsoft::Terminal::TerminalControl::TermControl& sender, const winrt::Windows::Foundation::IInspectable& /*args*/);
-    void _ControlGotFocusHandler(winrt::Windows::Foundation::IInspectable const& sender,
-                                 winrt::Windows::UI::Xaml::RoutedEventArgs const& e);
-
-    std::pair<float, float> _CalcChildrenSizes(const float fullSize) const;
-    SnapChildrenSizeResult _CalcSnappedChildrenSizes(const bool widthOrHeight, const float fullSize) const;
-    SnapSizeResult _CalcSnappedDimension(const bool widthOrHeight, const float dimension) const;
-    void _AdvanceSnappedDimension(const bool widthOrHeight, LayoutSizeNode& sizeNode) const;
-
-    winrt::Windows::Foundation::Size _GetMinSize() const;
-    LayoutSizeNode _CreateMinSizeTree(const bool widthOrHeight) const;
-    float _ClampSplitPosition(const bool widthOrHeight, const float requestedValue, const float totalSize) const;
-
-    winrt::TerminalApp::SplitState _convertAutomaticSplitState(const winrt::TerminalApp::SplitState& splitType) const;
-    // Function Description:
-    // - Returns true if the given direction can be used with the given split
-    //   type.
-    // - This is used for pane resizing (which will need a pane separator
-    //   that's perpendicular to the direction to be able to move the separator
-    //   in that direction).
-    // - Additionally, it will be used for moving focus between panes, which
-    //   again happens _across_ a separator.
-    // Arguments:
-    // - direction: The Direction to compare
-    // - splitType: The winrt::TerminalApp::SplitState to compare
+    // Method Description:
+    // - Returns first leaf pane found in the tree.
     // Return Value:
-    // - true iff the direction is perpendicular to the splitType. False for
-    //   winrt::TerminalApp::SplitState::None.
-    static constexpr bool DirectionMatchesSplit(const winrt::TerminalApp::Direction& direction,
-                                                const winrt::TerminalApp::SplitState& splitType)
-    {
-        if (splitType == winrt::TerminalApp::SplitState::None)
-        {
-            return false;
-        }
-        else if (splitType == winrt::TerminalApp::SplitState::Horizontal)
-        {
-            return direction == winrt::TerminalApp::Direction::Up ||
-                   direction == winrt::TerminalApp::Direction::Down;
-        }
-        else if (splitType == winrt::TerminalApp::SplitState::Vertical)
-        {
-            return direction == winrt::TerminalApp::Direction::Left ||
-                   direction == winrt::TerminalApp::Direction::Right;
-        }
-        return false;
-    }
+    // - Itself if it's a leaf, or first of its children if it's a parent.
+    virtual std::shared_ptr<LeafPane> _FindFirstLeaf() = 0;
 
-    static void _SetupResources();
+    // Method Description:
+    // - Get the absolute minimum size that this pane can be resized to and still
+    //   have 1x1 character visible, in each of its children. If we're a leaf, we'll
+    //   include the space needed for borders _within_ us.
+    // Arguments:
+    // - <none>
+    // Return Value:
+    // - The minimum size that this pane can be resized to and still have a visible
+    //   character.
+    virtual winrt::Windows::Foundation::Size _GetMinSize() const = 0;
+
+    // Method Description:
+    // - Builds a tree of LayoutSizeNode that matches the tree of panes. Each node
+    //   has minimum size that the corresponding pane can have.
+    // Arguments:
+    // - widthOrHeight: if true operates on width, otherwise on height
+    // Return Value:
+    // - Root node of built tree, which matches this pane.
+    virtual LayoutSizeNode _CreateMinSizeTree(const bool widthOrHeight) const;
+
+    // Method Description:
+    // - Adjusts given dimension (width or height) so that all descendant terminals
+    //   align with their character grids as close as possible. Also makes sure to
+    //   fit in minimal sizes of the panes.
+    // Arguments:
+    // - widthOrHeight: if true operates on width, otherwise on height
+    // - dimension: a dimension (width or height) to be snapped
+    // Return Value:
+    // - pair of floats, where first value is the size snapped downward (not greater then
+    //   requested size) and second is the size snapped upward (not lower than requested size).
+    //   If requested size is already snapped, then both returned values equal this value.
+    virtual SnapSizeResult _CalcSnappedDimension(const bool widthOrHeight, const float dimension) const = 0;
+
+    // Method Description:
+    // - Increases size of given LayoutSizeNode to match next possible 'snap'. In case of leaf
+    //   pane this means the next cell of the terminal. Otherwise it means that one of its children
+    //   advances (recursively). It expects the given node and its descendants to have either
+    //   already snapped or minimum size.
+    // Arguments:
+    // - widthOrHeight: if true operates on width, otherwise on height.
+    // - sizeNode: a layouting node that corresponds to this pane.
+    // Return Value:
+    // - <none>
+    virtual void _AdvanceSnappedDimension(const bool widthOrHeight, LayoutSizeNode& sizeNode) const = 0;
+
+    // Make derived classes friends, so they can access protected members of Pane. C++ for some
+    // reason doesn't allow that by default - e.g. LeafPane can access LeafPane::_ProtectedMember,
+    // but not Pane::_ProtectedMember.
+    friend class LeafPane;
+    friend class ParentPane;
 
     struct SnapSizeResult
     {
