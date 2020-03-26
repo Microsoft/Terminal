@@ -791,3 +791,12 @@ bool Terminal::IsCursorBlinkingAllowed() const noexcept
     const auto& cursor = _buffer->GetCursor();
     return cursor.IsBlinkingAllowed();
 }
+
+// Routine Description:
+// - Sets up the callback for mouse input mode changes
+// Parameters:
+// - mouseModeChangedCallback: the callback
+void Terminal::SetMouseModeChangedCallback(std::function<void()> mouseModeChangedCallback) noexcept
+{
+    _terminalInput->SetMouseModeChangedCallback(std::move(mouseModeChangedCallback));
+}

@@ -172,6 +172,7 @@ public:
 
     void SetCursorOn(const bool isOn) noexcept;
     bool IsCursorBlinkingAllowed() const noexcept;
+    void SetMouseModeChangedCallback(std::function<void()> mouseModeChangedCallback) noexcept;
 
 #pragma region TextSelection
     // These methods are defined in TerminalSelection.cpp

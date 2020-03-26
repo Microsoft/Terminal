@@ -47,6 +47,15 @@ void TerminalInput::EnableDefaultTracking(const bool enable) noexcept
     _mouseInputState.trackingMode = enable ? TrackingMode::Default : TrackingMode::None;
     _mouseInputState.lastPos = { -1, -1 }; // Clear out the last saved mouse position & button.
     _mouseInputState.lastButton = 0;
+
+    if (_mouseModeChangedCallback)
+    {
+        try
+        {
+            _mouseModeChangedCallback();
+        }
+        CATCH_LOG();
+    }
 }
 
 // Routine Description:
@@ -63,6 +72,15 @@ void TerminalInput::EnableButtonEventTracking(const bool enable) noexcept
     _mouseInputState.trackingMode = enable ? TrackingMode::ButtonEvent : TrackingMode::None;
     _mouseInputState.lastPos = { -1, -1 }; // Clear out the last saved mouse position & button.
     _mouseInputState.lastButton = 0;
+
+    if (_mouseModeChangedCallback)
+    {
+        try
+        {
+            _mouseModeChangedCallback();
+        }
+        CATCH_LOG();
+    }
 }
 
 // Routine Description:
@@ -79,6 +97,15 @@ void TerminalInput::EnableAnyEventTracking(const bool enable) noexcept
     _mouseInputState.trackingMode = enable ? TrackingMode::AnyEvent : TrackingMode::None;
     _mouseInputState.lastPos = { -1, -1 }; // Clear out the last saved mouse position & button.
     _mouseInputState.lastButton = 0;
+
+    if (_mouseModeChangedCallback)
+    {
+        try
+        {
+            _mouseModeChangedCallback();
+        }
+        CATCH_LOG();
+    }
 }
 
 // Routine Description:
@@ -112,4 +139,13 @@ void TerminalInput::UseAlternateScreenBuffer() noexcept
 void TerminalInput::UseMainScreenBuffer() noexcept
 {
     _mouseInputState.inAlternateBuffer = false;
+}
+
+// Routine Description:
+// - Sets up the callback for mouse input mode changes
+// Parameters:
+// - mouseModeChangedCallback: the callback
+void TerminalInput::SetMouseModeChangedCallback(std::function<void()> mouseModeChangedCallback) noexcept
+{
+    _mouseModeChangedCallback = std::move(mouseModeChangedCallback);
 }
