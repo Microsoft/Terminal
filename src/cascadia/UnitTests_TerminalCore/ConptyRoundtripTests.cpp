@@ -192,6 +192,8 @@ class TerminalCoreUnitTests::ConptyRoundtripTests final
 
     TEST_METHOD(ScrollWithMargins);
 
+    TEST_METHOD(ExactWrapResize);
+
 private:
     bool _writeCallback(const char* const pch, size_t const cch);
     void _flushFirstFrame();
@@ -2358,4 +2360,144 @@ void ConptyRoundtripTests::BreakLinesOnCursorMovement()
     Log::Comment(L"========== Checking the terminal buffer state ==========");
 
     verifyBuffer(termTb, term->_mutableViewport.ToInclusive());
+}
+
+void ConptyRoundtripTests::ExactWrapResize()
+{
+    // This is a test for GH#3088
+
+    BEGIN_TEST_METHOD_PROPERTIES()
+        TEST_METHOD_PROPERTY(L"Data:dx", L"{0, 1, 10}")
+        TEST_METHOD_PROPERTY(L"Data:cursorMovementMode", L"{1, 2, 4}")
+    END_TEST_METHOD_PROPERTIES();
+
+    constexpr int MoveCursorWithCUP = 0;
+    constexpr int MoveCursorWithCR_LF = 1;
+    constexpr int MoveCursorWithLF_CR = 2;
+    constexpr int MoveCursorWithVPR_CR = 3;
+    constexpr int MoveCursorWithCUB_LF = 4;
+    constexpr int MoveCursorWithCUD_CR = 5;
+
+    INIT_TEST_PROPERTY(int, dx, L"Controls how much we increase the width by");
+    INIT_TEST_PROPERTY(int, cursorMovementMode, L"Controls how we move the cursor, either with CUP, newline/carriage-return, or some other VT sequence");
+
+    Log::Comment(L"This test will write two lines of text that are exactly the"
+                 L" width of the buffer to the terminal. We'll manually break"
+                 L" these lines. Then we'll increase the width of the terminal"
+                 L" & host. When the re-wrap is complete, the lines should remain broken");
+    VERIFY_IS_NOT_NULL(_pVtRenderEngine.get());
+
+    auto& g = ServiceLocator::LocateGlobals();
+    auto& renderer = *g.pRender;
+    auto& gci = g.getConsoleInformation();
+    auto& si = gci.GetActiveOutputBuffer();
+    auto& hostSm = si.GetStateMachine();
+    auto* hostTb = &si.GetTextBuffer();
+    auto* termTb = term->_buffer.get();
+
+    _flushFirstFrame();
+
+    auto verifyBuffer = [&](const TextBuffer& tb,
+                            const til::rectangle viewport,
+                            const bool afterResize = false) {
+        const auto top = viewport.top<short>();
+
+        const til::point expectedCursor{ 0, top + 2 };
+        VERIFY_ARE_EQUAL(expectedCursor, til::point{ tb.GetCursor().GetPosition() });
+        VERIFY_IS_TRUE(tb.GetCursor().IsVisible());
+
+        // Helper to check that the given row is full of 80 of the provided
+        // character, and the rest of the row is spaces.
+        auto checkRow = [&](const auto row, const auto wch) {
+            VERIFY_IS_FALSE(tb.GetRowByOffset(top).GetCharRow().WasWrapForced());
+            auto iter = TestUtils::VerifyExpectedString(tb,
+                                                        std::wstring(TerminalViewWidth, wch),
+                                                        til::point{ 0, row });
+            if (afterResize && dx > 0)
+            {
+                TestUtils::VerifyExpectedString(std::wstring(dx, L' '), iter);
+            }
+        };
+
+        checkRow(top, L'X');
+        checkRow(top + 1, L'Y');
+    };
+
+    // We're _not_ checking the conpty output during this test, only the side effects.
+    _logConpty = true;
+    _checkConptyOutput = false;
+
+    // Fill the 0'th row with exactly enough 'X's to fill the row.
+    hostSm.ProcessString(std::wstring(TerminalViewWidth, L'X'));
+
+    // Break the line manually. This next section is adapted from
+    // ConptyRoundtripTests::BreakLinesOnCursorMovement. We specifically care
+    // about the \r\n case, because that's how apps usually move the cursor to
+    // the next line, but these are all different ways an application could move
+    // the cursor to the second line.
+    //
+    // Unlike BreakLinesOnCursorMovement, we're only testing the cases where a
+    // cursor movement actaully broke the line. This test would be much too
+    // complicated if we had to try and check the reflowed contents of wrapped
+    // lines.
+
+    // Vim uses CUP to position the cursor on the first cell of each row, every row.
+    // As an additional test, try breaking lines manually with \r\n
+    if (cursorMovementMode == MoveCursorWithCR_LF)
+    {
+        hostSm.ProcessString(L"\r\n");
+    }
+    // As an additional test, try breaking lines manually with \n\r
+    else if (cursorMovementMode == MoveCursorWithLF_CR)
+    {
+        hostSm.ProcessString(L"\n\r");
+    }
+    // As an additional test, move the cursor back with CUB, then down with LF
+    else if (cursorMovementMode == MoveCursorWithCUB_LF)
+    {
+        hostSm.ProcessString(L"\x1b[80D");
+        hostSm.ProcessString(L"\n");
+    }
+
+    // Print a second line of 'Y's. This is important, GH#3088 won't repro if
+    // there isn't a second line in the buffer.
+    hostSm.ProcessString(std::wstring(TerminalViewWidth, L'Y'));
+
+    // We don't care so much about how the second line is broken, we mostly just
+    // care that the line is _there at all_.
+    hostSm.ProcessString(L"\r\n");
+
+    Log::Comment(L"========== Checking the host buffer state before the resize ==========");
+    verifyBuffer(*hostTb, si.GetViewport().ToInclusive());
+
+    Log::Comment(L"Painting the frame");
+    VERIFY_SUCCEEDED(renderer.PaintFrame());
+
+    Log::Comment(L"========== Checking the terminal buffer state before the resize ==========");
+
+    verifyBuffer(*termTb, term->_mutableViewport.ToInclusive());
+
+    Log::Comment(L"========== Resize the Terminal and conpty here ==========");
+    const COORD newViewportSize{
+        ::base::saturated_cast<short>(TerminalViewWidth + dx),
+        ::base::saturated_cast<short>(TerminalViewHeight)
+    };
+
+    auto resizeResult = term->UserResize(newViewportSize);
+    VERIFY_SUCCEEDED(resizeResult);
+    _resizeConpty(newViewportSize.X, newViewportSize.Y);
+
+    // After we resize, make sure to get the new textBuffers
+    hostTb = &si.GetTextBuffer();
+    termTb = term->_buffer.get();
+
+    Log::Comment(L"========== Checking the host buffer state after the resize ==========");
+    verifyBuffer(*hostTb, si.GetViewport().ToInclusive(), true);
+
+    Log::Comment(L"Painting the frame");
+    VERIFY_SUCCEEDED(renderer.PaintFrame());
+
+    Log::Comment(L"========== Checking the terminal buffer state after the resize ==========");
+
+    verifyBuffer(*termTb, term->_mutableViewport.ToInclusive(), true);
 }
