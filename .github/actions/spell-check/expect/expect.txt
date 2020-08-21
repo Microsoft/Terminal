@@ -2063,6 +2063,7 @@ Scrollup
 Scrolluppage
 Scs
 scursor
+sclose
 sddl
 sdeleted
 sdk

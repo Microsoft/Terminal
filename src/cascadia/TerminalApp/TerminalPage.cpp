@@ -444,6 +444,21 @@ namespace winrt::TerminalApp::implementation
     }
 
     // Method Description:
+    // - Displays a dialog for warnings found while closing a terminal tab 
+    //   with multiple panes opened. Display messages to warn user
+    //   that more than 1 pane is opened, and once the user clicks the OK button, remove
+    //   all the panes and sclose the tab. If cancel is clicked, the dialog will close
+    // - Only one dialog can be visible at a time. If another dialog is visible
+    //   when this is called, nothing happens. See _ShowDialog for details
+    void TerminalPage::_ShowCloseTabDialog()
+    {
+        if (auto presenter{ _dialogPresenter.get() })
+        {
+            presenter.ShowDialog(FindName(L"CloseTabDialog").try_as<WUX::Controls::ContentDialog>());
+        }
+    }
+
+    // Method Description:
     // - Builds the flyout (dropdown) attached to the new tab button, and
     //   attaches it to the button. Populates the flyout with one entry per
     //   Profile, displaying the profile's name. Clicking each flyout item will
@@ -1960,8 +1975,19 @@ namespace winrt::TerminalApp::implementation
     // - eventArgs: the event's constituent arguments
     void TerminalPage::_OnTabCloseRequested(const IInspectable& /*sender*/, const MUX::Controls::TabViewTabCloseRequestedEventArgs& eventArgs)
     {
-        const auto tabViewItem = eventArgs.Tab();
-        _RemoveTabViewItem(tabViewItem);
+        if (auto index{ _GetFocusedTabIndex() })
+        {
+            auto focusedTab{ _GetStrongTabImpl(*index) };
+            if (focusedTab->_GetLeafPaneCount() == 1 || !_settings->GlobalSettings().ConfirmCloseTab())
+            {
+                const auto tabViewItem = eventArgs.Tab();
+                _RemoveTabViewItem(tabViewItem);
+            }
+            else if (focusedTab->_GetLeafPaneCount() > 1 && _settings->GlobalSettings().ConfirmCloseTab())
+            {
+                _ShowCloseTabDialog();
+            }
+        }
     }
 
     // Method Description:
@@ -1976,6 +2002,12 @@ namespace winrt::TerminalApp::implementation
                                                          WUX::Controls::ContentDialogButtonClickEventArgs /* eventArgs*/)
     {
         _CloseAllTabs();
+    }
+
+    void TerminalPage::_CloseTabWarningPrimaryButtonOnClick(WUX::Controls::ContentDialog /* sender */,
+                                                            WUX::Controls::ContentDialogButtonClickEventArgs /* eventArgs*/)
+    {
+        _CloseFocusedTab();
     }
 
     // Method Description:

@@ -49,6 +49,8 @@ namespace winrt::TerminalApp::implementation
         void UpdateSettings(const winrt::TerminalApp::TerminalSettings& settings, const GUID& profile);
         winrt::hstring GetActiveTitle() const;
 
+        int _GetLeafPaneCount() const noexcept;
+
         void Shutdown();
         void ClosePane();
 
