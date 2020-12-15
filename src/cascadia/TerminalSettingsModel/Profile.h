@@ -112,6 +112,7 @@ namespace winrt::Microsoft::Terminal::Settings::Model::implementation
         GETSET_SETTING(uint32_t, CursorHeight, DEFAULT_CURSOR_HEIGHT);
 
         GETSET_SETTING(Model::BellStyle, BellStyle, BellStyle::Audible);
+        GETSET_SETTING(bool, Elevate);
 
     private:
         static std::wstring EvaluateStartingDirectory(const std::wstring& directory);

@@ -13,6 +13,8 @@
 #include <winrt/Windows.Storage.h>
 #include <winrt/Microsoft.UI.Xaml.XamlTypeInfo.h>
 
+#include "../WinRTUtils/inc/WtExeUtils.h"
+
 #include "TabRowControl.h"
 #include "ColorHelper.h"
 #include "DebugTapConnection.h"
@@ -112,6 +114,29 @@ namespace winrt::TerminalApp::implementation
         }
     }
 
+    static bool IsElevated()
+    {
+        // use C++11 magic statics to make sure we only do this once.
+        // This won't change over the lifetime of the application
+
+        static const bool isElevated = []() {
+            // *** THIS IS A SINGLETON ***
+            auto result = false;
+
+            // GH#2455 - Make sure to try/catch calls to Application::Current,
+            // because that _won't_ be an instance of TerminalApp::App in the
+            // LocalTests
+            try
+            {
+                result = ::winrt::Windows::UI::Xaml::Application::Current().as<::winrt::TerminalApp::App>().Logic().IsElevated();
+            }
+            CATCH_LOG();
+            return result;
+        }();
+
+        return isElevated;
+    }
+
     void TerminalPage::Create()
     {
         // Hookup the key bindings
@@ -122,19 +147,7 @@ namespace winrt::TerminalApp::implementation
         _tabView = _tabRow.TabView();
         _rearranging = false;
 
-        // GH#2455 - Make sure to try/catch calls to Application::Current,
-        // because that _won't_ be an instance of TerminalApp::App in the
-        // LocalTests
-        auto isElevated = false;
-        try
-        {
-            // GH#3581 - There's a platform limitation that causes us to crash when we rearrange tabs.
-            // Xaml tries to send a drag visual (to wit: a screenshot) to the drag hosting process,
-            // but that process is running at a different IL than us.
-            // For now, we're disabling elevated drag.
-            isElevated = ::winrt::Windows::UI::Xaml::Application::Current().as<::winrt::TerminalApp::App>().Logic().IsElevated();
-        }
-        CATCH_LOG();
+        auto isElevated = IsElevated();
 
         _tabView.CanReorderTabs(!isElevated);
         _tabView.CanDragTabs(!isElevated);
@@ -387,10 +400,41 @@ namespace winrt::TerminalApp::implementation
     // - <none>
     // Return Value:
     // - <none>
-    void TerminalPage::_CompleteInitialization()
+    winrt::fire_and_forget TerminalPage::_CompleteInitialization()
     {
         _startupState = StartupState::Initialized;
-        _InitializedHandlers(*this, nullptr);
+
+        // GH#632 - It's possible that the user tried to create the terminal
+        // with only one tab, with only an elevated profile. If that happens,
+        // we'll create _another_ process to host the elevated version of that
+        // profile. This can happen from the jumplist, or if the default profile
+        // is `elevate:true`, or from the commandline.
+        //
+        // However, we need to make sure to close this window in that scenario.
+        // Since there aren't any _tabs_ in this window, we won't ever get a
+        // closed event. So do it manually.
+        auto weakThis{ get_weak() };
+        if (_tabs.Size() == 0)
+        {
+            // This is MENTAL. If we exit right away after spawning the elevated
+            // WT, then ShellExecute might not successfully complete the
+            // elevation. What's even more, the Terminal will mysteriously crash
+            // somewhere in XAML land.
+            //
+            // So I'm introducing a 5s delay here for the Shell to complete the
+            // execution, and _then_ close the window.
+            co_await winrt::resume_background();
+            if (auto page{ weakThis.get() })
+            {
+                Sleep(5000);
+                co_await winrt::resume_foreground(page->Dispatcher(), CoreDispatcherPriority::Normal);
+                page->_lastTabClosedHandlers(*page, nullptr);
+            }
+        }
+        else
+        {
+            _InitializedHandlers(*this, nullptr);
+        }
     }
 
     // Method Description:
@@ -660,6 +704,52 @@ namespace winrt::TerminalApp::implementation
         _newTabButton.Flyout().ShowAt(_newTabButton, options);
     }
 
+    // Function Description:
+    // - Helper to launch a new WT instance elevated. It'll do this by asking
+    //   the shell to elevate the process for us. This might cause a UAC prompt.
+    //   The elevation is performed on a background thread, as to not block the
+    //   UI thread.
+    // Arguments:
+    // - newTerminalArgs: A NewTerminalArgs describing the terminal instance
+    //   that should be spawned. The Profile should be filled in with the GUID
+    //   of the profile we want to launch.
+    // Return Value:
+    // - <none>
+    // Important: Don't take the param by reference, since we'll be doing work
+    // on another thread.
+    fire_and_forget _OpenElevatedWT(const NewTerminalArgs newTerminalArgs)
+    {
+        // Hop to the BG thread
+        co_await winrt::resume_background();
+
+        // This will get us the correct exe for dev/preview/release. If you
+        // don't stick this in a local, it'll get mangled by ShellExecute. I
+        // have no idea why.
+        const auto exePath{ GetWtExePath() };
+
+        // Build the commandline to pass to wt for this set of NewTerminalArgs
+        winrt::hstring cmdline{
+            fmt::format(L"new-tab {}", newTerminalArgs.ToCommandline().c_str())
+        };
+
+        // Build the args to ShellExecuteEx. We need to use ShellExecuteEx so we
+        // can pass the SEE_MASK_NOASYNC flag. That flag allows us to safely
+        // call this on the background thread, and have ShellExecute _not_ call
+        // back to us on the main thread. Without this, if you close the
+        // Terminal quickly after the UAC prompt, the elevated WT will never
+        // actually spawn.
+        SHELLEXECUTEINFOW seInfo{ 0 };
+        seInfo.cbSize = sizeof(seInfo);
+        seInfo.fMask = SEE_MASK_NOASYNC;
+        seInfo.lpVerb = L"runas";
+        seInfo.lpFile = exePath.c_str();
+        seInfo.lpParameters = cmdline.c_str();
+        seInfo.nShow = SW_SHOWNORMAL;
+        LOG_IF_WIN32_BOOL_FALSE(ShellExecuteExW(&seInfo));
+
+        co_return;
+    }
+
     // Method Description:
     // - Open a new tab. This will create the TerminalControl hosting the
     //   terminal, and add a new Tab to our list of tabs. The method can
@@ -673,6 +763,26 @@ namespace winrt::TerminalApp::implementation
     try
     {
         auto [profileGuid, settings] = TerminalSettings::BuildSettings(_settings, newTerminalArgs, *_bindings);
+
+        // Try to handle auto-elevation
+        const bool requestedElevation = settings.Elevate();
+        const bool currentlyElevated = IsElevated();
+
+        // We aren't elevated, but we want to be.
+        if (requestedElevation && !currentlyElevated)
+        {
+            // Manually set the Profile of the NewTerminalArgs to the guid we've
+            // resolved to. If there was a profile in the NewTerminalArgs, this
+            // will be that profile's GUID. If there wasn't, then we'll use
+            // whatever the default profile's GUID is.
+
+            newTerminalArgs.Profile(::Microsoft::Console::Utils::GuidToString(profileGuid));
+            _OpenElevatedWT(newTerminalArgs);
+            return;
+        }
+        // We can't go in the other direction (elevated->unelevated)
+        // unfortunately. This seems to be due to Centennial quirks. It works
+        // unpackaged, but not packaged.
 
         _CreateNewTabFromSettings(profileGuid, settings);
 
@@ -1633,6 +1743,23 @@ namespace winrt::TerminalApp::implementation
             if (!profileFound)
             {
                 std::tie(realGuid, controlSettings) = TerminalSettings::BuildSettings(_settings, newTerminalArgs, *_bindings);
+            }
+
+            // Try to handle auto-elevation
+            const bool requestedElevation = controlSettings.Elevate();
+            const bool currentlyElevated = IsElevated();
+
+            // We aren't elevated, but we want to be.
+            if (requestedElevation && !currentlyElevated)
+            {
+                // Manually set the Profile of the NewTerminalArgs to the guid we've
+                // resolved to. If there was a profile in the NewTerminalArgs, this
+                // will be that profile's GUID. If there wasn't, then we'll use
+                // whatever the default profile's GUID is.
+
+                newTerminalArgs.Profile(::Microsoft::Console::Utils::GuidToString(realGuid));
+                _OpenElevatedWT(newTerminalArgs);
+                return;
             }
 
             const auto controlConnection = _CreateConnectionFromSettings(realGuid, controlSettings);

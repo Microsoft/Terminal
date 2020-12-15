@@ -65,6 +65,7 @@ namespace winrt::Microsoft::Terminal::Settings::Model::implementation
         GETSET_PROPERTY(Windows::Foundation::IReference<Windows::UI::Color>, TabColor, nullptr);
         GETSET_PROPERTY(Windows::Foundation::IReference<int32_t>, ProfileIndex, nullptr);
         GETSET_PROPERTY(winrt::hstring, Profile, L"");
+        GETSET_PROPERTY(Windows::Foundation::IReference<bool>, Elevate, nullptr);
 
         static constexpr std::string_view CommandlineKey{ "commandline" };
         static constexpr std::string_view StartingDirectoryKey{ "startingDirectory" };
@@ -72,9 +73,12 @@ namespace winrt::Microsoft::Terminal::Settings::Model::implementation
         static constexpr std::string_view TabColorKey{ "tabColor" };
         static constexpr std::string_view ProfileIndexKey{ "index" };
         static constexpr std::string_view ProfileKey{ "profile" };
+        static constexpr std::string_view ElevateKey{ "elevate" };
 
     public:
         hstring GenerateName() const;
+
+        hstring ToCommandline() const;
 
         bool Equals(const Model::NewTerminalArgs& other)
         {
@@ -83,6 +87,7 @@ namespace winrt::Microsoft::Terminal::Settings::Model::implementation
                    other.TabTitle() == _TabTitle &&
                    other.TabColor() == _TabColor &&
                    other.ProfileIndex() == _ProfileIndex &&
+                   other.Elevate() == _Elevate &&
                    other.Profile() == _Profile;
         };
         static Model::NewTerminalArgs FromJson(const Json::Value& json)
@@ -95,6 +100,7 @@ namespace winrt::Microsoft::Terminal::Settings::Model::implementation
             JsonUtils::GetValueForKey(json, ProfileIndexKey, args->_ProfileIndex);
             JsonUtils::GetValueForKey(json, ProfileKey, args->_Profile);
             JsonUtils::GetValueForKey(json, TabColorKey, args->_TabColor);
+            JsonUtils::GetValueForKey(json, ElevateKey, args->_Elevate);
             return *args;
         }
         Model::NewTerminalArgs Copy() const
@@ -106,6 +112,7 @@ namespace winrt::Microsoft::Terminal::Settings::Model::implementation
             copy->_TabColor = _TabColor;
             copy->_ProfileIndex = _ProfileIndex;
             copy->_Profile = _Profile;
+            copy->_Elevate = _Elevate;
             return *copy;
         }
     };

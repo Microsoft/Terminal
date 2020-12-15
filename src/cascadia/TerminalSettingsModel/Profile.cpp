@@ -58,6 +58,7 @@ static constexpr std::string_view RetroTerminalEffectKey{ "experimental.retroTer
 static constexpr std::string_view AntialiasingModeKey{ "antialiasingMode" };
 static constexpr std::string_view TabColorKey{ "tabColor" };
 static constexpr std::string_view BellStyleKey{ "bellStyle" };
+static constexpr std::string_view ElevateKey{ "elevate" };
 
 static constexpr std::wstring_view DesktopWallpaperEnum{ L"desktopWallpaper" };
 
@@ -334,10 +335,10 @@ void Profile::LayerJson(const Json::Value& json)
     JsonUtils::GetValueForKey(json, BackgroundImageAlignmentKey, _BackgroundImageAlignment);
     JsonUtils::GetValueForKey(json, RetroTerminalEffectKey, _RetroTerminalEffect);
     JsonUtils::GetValueForKey(json, AntialiasingModeKey, _AntialiasingMode);
-
     JsonUtils::GetValueForKey(json, TabColorKey, _TabColor);
-
     JsonUtils::GetValueForKey(json, BellStyleKey, _BellStyle);
+
+    JsonUtils::GetValueForKey(json, ElevateKey, _Elevate);
 }
 
 // Method Description:
@@ -529,6 +530,8 @@ Json::Value Profile::ToJson() const
     JsonUtils::SetValueForKey(json, AntialiasingModeKey, _AntialiasingMode);
     JsonUtils::SetValueForKey(json, TabColorKey, _TabColor);
     JsonUtils::SetValueForKey(json, BellStyleKey, _BellStyle);
+
+    JsonUtils::SetValueForKey(json, ElevateKey, _Elevate);
 
     return json;
 }

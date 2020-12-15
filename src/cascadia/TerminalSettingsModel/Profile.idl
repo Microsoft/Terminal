@@ -186,5 +186,9 @@ namespace Microsoft.Terminal.Settings.Model
         Boolean HasBellStyle();
         void ClearBellStyle();
         BellStyle BellStyle;
+
+        Boolean HasElevate();
+        void ClearElevate();
+        Boolean Elevate;
     }
 }
