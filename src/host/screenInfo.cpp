@@ -59,7 +59,8 @@ SCREEN_INFORMATION::SCREEN_INFORMATION(
     _renderTarget{ *this },
     _currentFont{ fontInfo },
     _desiredFont{ fontInfo },
-    _ignoreLegacyEquivalentVTAttributes{ false }
+    _ignoreLegacyEquivalentVTAttributes{ false },
+    _insertMode{ false }
 {
     // Check if VT mode is enabled. Note that this can be true w/o calling
     // SetConsoleMode, if VirtualTerminalLevel is set to !=0 in the registry.
@@ -2309,6 +2310,11 @@ OutputCellRect SCREEN_INFORMATION::ReadRect(const Viewport viewport) const
 // - will throw exception on error.
 OutputCellIterator SCREEN_INFORMATION::Write(const OutputCellIterator it)
 {
+    __assume(!_insertMode);
+    if (_insertMode)
+    {
+        return _textBuffer->Insert(it);
+    }
     return _textBuffer->Write(it);
 }
 
@@ -2703,4 +2709,9 @@ void SCREEN_INFORMATION::SetIgnoreLegacyEquivalentVTAttributes() noexcept
 void SCREEN_INFORMATION::ResetIgnoreLegacyEquivalentVTAttributes() noexcept
 {
     _ignoreLegacyEquivalentVTAttributes = false;
+}
+
+void SCREEN_INFORMATION::SetInsertMode(bool insertMode) noexcept
+{
+    _insertMode = insertMode;
 }

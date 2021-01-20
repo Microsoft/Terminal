@@ -67,8 +67,8 @@ namespace Microsoft::Console::VirtualTerminal
         bool InsertLine(const size_t distance) override; // IL
         bool DeleteLine(const size_t distance) override; // DL
         bool SetColumns(const size_t columns) override; // DECCOLM
-        bool SetMode(const DispatchTypes::ModeParams param) override; // DECSET
-        bool ResetMode(const DispatchTypes::ModeParams param) override; // DECRST
+        bool SetMode(const DispatchTypes::ModeParams param) override; // DECSET, SM
+        bool ResetMode(const DispatchTypes::ModeParams param) override; // DECRST, RM
         bool SetCursorKeysMode(const bool applicationMode) override; // DECCKM
         bool SetKeypadMode(const bool applicationMode) override; // DECKPAM, DECKPNM
         bool EnableWin32InputMode(const bool win32InputMode) override; // win32-input-mode
@@ -76,6 +76,7 @@ namespace Microsoft::Console::VirtualTerminal
         bool SetAnsiMode(const bool ansiMode) override; // DECANM
         bool SetScreenMode(const bool reverseMode) override; // DECSCNM
         bool SetOriginMode(const bool relativeMode) noexcept override; // DECOM
+        bool SetInsertMode(const bool insertMode) noexcept override; // IRM
         bool SetAutoWrapMode(const bool wrapAtEOL) override; // DECAWM
         bool SetTopBottomScrollingMargins(const size_t topMargin,
                                           const size_t bottomMargin) override; // DECSTBM

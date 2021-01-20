@@ -59,6 +59,7 @@ public:
     virtual bool SetScreenMode(const bool reverseMode) = 0; // DECSCNM
     virtual bool SetOriginMode(const bool relativeMode) = 0; // DECOM
     virtual bool SetAutoWrapMode(const bool wrapAtEOL) = 0; // DECAWM
+    virtual bool SetInsertMode(const bool insertMode) = 0; // IRM
     virtual bool SetTopBottomScrollingMargins(const size_t topMargin, const size_t bottomMargin) = 0; // DECSTBM
     virtual bool WarningBell() = 0; // BEL
     virtual bool CarriageReturn() = 0; // CR
@@ -88,9 +89,9 @@ public:
 
     virtual bool SetGraphicsRendition(const VTParameters options) = 0; // SGR
 
-    virtual bool SetMode(const DispatchTypes::ModeParams param) = 0; // DECSET
+    virtual bool SetMode(const DispatchTypes::ModeParams param) = 0; // DECSET, SM
 
-    virtual bool ResetMode(const DispatchTypes::ModeParams param) = 0; // DECRST
+    virtual bool ResetMode(const DispatchTypes::ModeParams param) = 0; // DECRST, RM
 
     virtual bool DeviceStatusReport(const DispatchTypes::AnsiStatusType statusType) = 0; // DSR, DSR-OS, DSR-CPR
     virtual bool DeviceAttributes() = 0; // DA1
