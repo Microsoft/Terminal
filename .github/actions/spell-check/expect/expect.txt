@@ -207,6 +207,8 @@ CARRIAGERETURN
 cascadia
 cassert
 catid
+carlos
+zamora
 cazamor
 CBash
 cbegin
@@ -2679,6 +2681,7 @@ WINDOWPOSCHANGING
 windowproc
 windowrect
 windowsapp
+windowsdeveloper
 windowsinternalstring
 WINDOWSIZE
 windowsx
