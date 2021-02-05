@@ -98,6 +98,28 @@ namespace winrt::Microsoft::Terminal::TerminalControl::implementation
         const hstring _message;
     };
 
+    struct SearchState
+    {
+    public:
+        static std::atomic<size_t> _searchIdGenerator;
+
+        SearchState(const winrt::hstring& text, const Search::Sensitivity sensitivity) :
+            Text(text),
+            Sensitivity(sensitivity),
+            SearchId(_searchIdGenerator.fetch_add(1))
+        {
+        }
+
+        const winrt::hstring Text;
+        const Search::Sensitivity Sensitivity;
+        const size_t SearchId;
+        std::optional<std::vector<std::pair<COORD, COORD>>> Matches;
+        int32_t CurrentMatchIndex{ -1 };
+
+        void UpdateIndex(bool goForward);
+        std::optional<std::pair<COORD, COORD>> GetCurrentMatch();
+    };
+
     struct TermControl : TermControlT<TermControl>
     {
         TermControl(IControlSettings settings, TerminalConnection::ITerminalConnection connection);
@@ -211,6 +233,8 @@ namespace winrt::Microsoft::Terminal::TerminalControl::implementation
 
         std::shared_ptr<ThrottledFunc<>> _updatePatternLocations;
 
+        std::shared_ptr<ThrottledFunc<>> _updateSearchStatus;
+
         struct ScrollBarUpdate
         {
             std::optional<double> newValue;
@@ -262,6 +286,8 @@ namespace winrt::Microsoft::Terminal::TerminalControl::implementation
         bool _selectionNeedsToBeCopied;
 
         winrt::Windows::UI::Xaml::Controls::SwapChainPanel::LayoutUpdated_revoker _layoutUpdatedRevoker;
+
+        std::optional<SearchState> _searchState;
 
         void _ApplyUISettings();
         void _UpdateSystemParameterSettings() noexcept;
@@ -328,8 +354,12 @@ namespace winrt::Microsoft::Terminal::TerminalControl::implementation
         const unsigned int _NumberOfClicks(winrt::Windows::Foundation::Point clickPos, Timestamp clickTime);
         double _GetAutoScrollSpeed(double cursorDistanceFromBorder) const;
 
+        winrt::Windows::Foundation::IAsyncOperation<bool> _SearchOne(Search& search);
         void _Search(const winrt::hstring& text, const bool goForward, const bool caseSensitive);
+        void _SearchChanged(const winrt::hstring& text, const bool goForward, const bool caseSensitive);
         void _CloseSearchBoxControl(const winrt::Windows::Foundation::IInspectable& sender, Windows::UI::Xaml::RoutedEventArgs const& args);
+        fire_and_forget _SearchAsync(std::optional<bool> goForward, Windows::Foundation::TimeSpan const& delay);
+        void _SelectSearchResult(std::optional<bool> goForward);
 
         // TSFInputControl Handlers
         void _CompositionCompleted(winrt::hstring text);
