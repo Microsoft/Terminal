@@ -25,7 +25,8 @@
 
     <ClCompile>
       <!-- For CLI11: It uses dynamic_cast to cast types around, which depends
-      on being compiled with RTTI (/GR). -->
+      on being compiled with RTTI (/GR). We need this in this project, because
+      we're including the CLI11 header via the CommandlineArgs project. -->
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
     </ClCompile>
   </ItemDefinitionGroup>
@@ -71,8 +72,6 @@
   <ItemGroup>
     <ClInclude Include="ActionPaletteItem.h" />
     <ClInclude Include="App.base.h" />
-    <ClInclude Include="AppCommandlineArgs.h" />
-    <ClInclude Include="Commandline.h" />
     <ClInclude Include="CommandLinePaletteItem.h" />
     <ClInclude Include="Jumplist.h" />
     <ClInclude Include="MinMaxCloseControl.h">
@@ -148,8 +147,6 @@
     <ClCompile Include="ActionPaletteItem.cpp" />
     <ClCompile Include="CommandLinePaletteItem.cpp" />
     <ClCompile Include="init.cpp" />
-    <ClCompile Include="AppCommandlineArgs.cpp" />
-    <ClCompile Include="Commandline.cpp" />
     <ClCompile Include="Jumplist.cpp" />
     <ClCompile Include="MinMaxCloseControl.cpp">
       <DependentUpon>MinMaxCloseControl.xaml</DependentUpon>
@@ -287,7 +284,13 @@
   </ItemGroup>
   <!-- ========================= Misc Files ======================== -->
   <ItemGroup>
-    <PRIResource Include="Resources\en-US\Resources.resw" />
+    <PRIResource Include="Resources\en-US\Resources.resw">
+      <SubType>Designer</SubType>
+    </PRIResource>
+    <!-- Make sure to include the CommandlineArgs resources here, so they show up in our scope -->
+    <PRIResource Include="$(OpenConsoleDir)src\cascadia\CommandlineArgs\Resources\en-US\Resources.resw">
+      <SubType>Designer</SubType>
+    </PRIResource>
     <OCResourceDirectory Include="Resources" />
     <None Include="packages.config" />
   </ItemGroup>
@@ -299,6 +302,14 @@
       you also update all the consumers
     -->
     <ProjectReference Include="$(OpenConsoleDir)src\types\lib\types.vcxproj" />
+    <ProjectReference Include="$(OpenConsoleDir)src\cascadia\CommandlineArgs\CommandlineArgs.vcxproj" >
+      <Private>true</Private>
+      <CopyLocalSatelliteAssemblies>false</CopyLocalSatelliteAssemblies>
+      <!-- Make sure to set ReferenceOutputAssembly=false, or we'll try and
+      MDMERGE with MUX from the CommandlineArgs output, and get duplicate type
+      errors everywhere. -->
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
     <ProjectReference Include="$(OpenConsoleDir)src\cascadia\WinRTUtils\WinRTUtils.vcxproj">
       <Project>{CA5CAD1A-039A-4929-BA2A-8BEB2E4106FE}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>

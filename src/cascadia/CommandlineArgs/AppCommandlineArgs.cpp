@@ -2,14 +2,12 @@
 // Licensed under the MIT license.
 
 #include "pch.h"
-#include "AppLogic.h"
 #include "AppCommandlineArgs.h"
 #include "../types/inc/utils.hpp"
 #include <LibraryResources.h>
 
-using namespace winrt::TerminalApp;
 using namespace winrt::Microsoft::Terminal::Settings::Model;
-using namespace TerminalApp;
+using namespace Microsoft::Terminal::CommandlineArgs;
 
 // Either a ; at the start of a line, or a ; preceded by any non-\ char.
 const std::wregex AppCommandlineArgs::_commandDelimiterRegex{ LR"(^;|[^\\];)" };
@@ -744,7 +742,7 @@ std::optional<winrt::Microsoft::Terminal::Settings::Model::LaunchMode> AppComman
 // - 0 if the commandline was successfully parsed
 int AppCommandlineArgs::ParseArgs(winrt::array_view<const winrt::hstring>& args)
 {
-    auto commands = ::TerminalApp::AppCommandlineArgs::BuildCommands(args);
+    auto commands = ::Microsoft::Terminal::CommandlineArgs::AppCommandlineArgs::BuildCommands(args);
 
     for (auto& cmdBlob : commands)
     {
