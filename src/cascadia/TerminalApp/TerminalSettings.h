@@ -103,7 +103,7 @@ namespace winrt::TerminalApp::implementation
         INHERITABLE_SETTING(TerminalApp::TerminalSettings, hstring, StartingDirectory);
         INHERITABLE_SETTING(TerminalApp::TerminalSettings, hstring, StartingTitle);
         INHERITABLE_SETTING(TerminalApp::TerminalSettings, bool, SuppressApplicationTitle);
-        INHERITABLE_SETTING(TerminalApp::TerminalSettings, hstring, EnvironmentVariables);
+        INHERITABLE_SETTING(TerminalApp::TerminalSettings, winrt::Windows::Foundation::Collections::StringMap, EnvironmentVariables);
 
         INHERITABLE_SETTING(TerminalApp::TerminalSettings, Microsoft::Terminal::TerminalControl::ScrollbarState, ScrollState, Microsoft::Terminal::TerminalControl::ScrollbarState::Visible);
 

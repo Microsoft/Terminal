@@ -18,6 +18,7 @@ using namespace winrt::Microsoft::Terminal::TerminalControl;
 using namespace winrt::Windows::UI;
 using namespace winrt::Windows::UI::Xaml;
 using namespace winrt::Windows::Foundation;
+using namespace winrt::Windows::Foundation::Collections;
 using namespace ::Microsoft::Console;
 
 static constexpr std::string_view NameKey{ "name" };
@@ -59,6 +60,7 @@ static constexpr std::string_view AntialiasingModeKey{ "antialiasingMode" };
 static constexpr std::string_view TabColorKey{ "tabColor" };
 static constexpr std::string_view BellStyleKey{ "bellStyle" };
 static constexpr std::string_view PixelShaderPathKey{ "experimental.pixelShaderPath" };
+static constexpr std::string_view EnvironmentKey{ "environment" };
 
 static constexpr std::wstring_view DesktopWallpaperEnum{ L"desktopWallpaper" };
 
@@ -114,6 +116,7 @@ winrt::com_ptr<Profile> Profile::CopySettings(winrt::com_ptr<Profile> source)
     profile->_BackgroundImageAlignment = source->_BackgroundImageAlignment;
     profile->_ConnectionType = source->_ConnectionType;
     profile->_Origin = source->_Origin;
+    profile->_EnvironmentVariables = source->_EnvironmentVariables;
 
     return profile;
 }
@@ -340,6 +343,8 @@ void Profile::LayerJson(const Json::Value& json)
     JsonUtils::GetValueForKey(json, TabColorKey, _TabColor);
     JsonUtils::GetValueForKey(json, BellStyleKey, _BellStyle);
     JsonUtils::GetValueForKey(json, PixelShaderPathKey, _PixelShaderPath);
+
+    JsonUtils::GetValueForKey(json, EnvironmentKey, _EnvironmentVariables);
 }
 
 // Method Description:
@@ -533,5 +538,173 @@ Json::Value Profile::ToJson() const
     JsonUtils::SetValueForKey(json, BellStyleKey, _BellStyle);
     JsonUtils::SetValueForKey(json, PixelShaderPathKey, _PixelShaderPath);
 
+    JsonUtils::SetValueForKey(json, EnvironmentKey, _EnvironmentVariables);
+
     return json;
+}
+
+namespace
+{
+    class VariablePair
+    {
+    public:
+        VariablePair(std::wstring rawValueIn) :
+            rawValue(std::move(rawValueIn))
+        {
+        }
+        VariablePair() = default;
+        virtual ~VariablePair() = default;
+        std::wstring rawValue;
+        std::wstring resolvedValue;
+    };
+
+    // Function Description:
+    // - Resolves a key's value from within envMap. Uses recursion to recursively resolve
+    //   referenced keys. envMap is updated as values are resolved so we don't double up on
+    //   work
+    // Arguments:
+    // - key: the key that may be in envMap or the environment (or unknown)
+    // - envMap: the map with all the keys, raw and resolved values
+    // - seenKeys: the list of keys that we have already seen when attempting to resolve the
+    //             current chain of keys. seenKeys needs to be passed in as a parameter so
+    //             that each layer in the recursion only has keys seen leading up to it
+    // Return Value:
+    // - The resolved value for key
+    std::wstring ResolveEnvironmentVariableValue(const std::wstring& key, std::map<std::wstring, VariablePair>& envMap, std::list<std::wstring> seenKeys = {})
+    {
+        // First check if the key is in our environment variable map
+        auto it = envMap.find(key);
+        if (it != envMap.end())
+        {
+            if (!it->second.resolvedValue.empty())
+            {
+                // key has already been resolved, so just return it
+                return it->second.resolvedValue;
+            }
+            if (std::find(seenKeys.cbegin(), seenKeys.cend(), key) != seenKeys.end())
+            {
+                // If we've attempted to resolve this key already then we're circularly resolving keys and this is
+                // an error, not aborting here would result in a dead-lock. e.g.:
+                // {
+                //    'KEY_1': '${env:KEY_2}',
+                //    'KEY_2': '${env:KEY_1}'
+                // }
+                std::wstringstream error;
+                error << L"Self referencing keys in environment settings: ";
+                for (auto seenKey : seenKeys)
+                {
+                    error << L"'" << seenKey << L"', ";
+                }
+                error << L"'" << key << L"'";
+                throw winrt::hresult_error(WEB_E_INVALID_JSON_STRING, winrt::hstring(error.str()));
+            }
+            static const std::wregex parameterRegex(LR"(\$\{env:(.*?)\})");
+            auto& value = it->second;
+            auto textIter = value.rawValue.cbegin();
+            std::wsmatch regexMatch;
+            while (std::regex_search(textIter, value.rawValue.cend(), regexMatch, parameterRegex))
+            {
+                if (regexMatch.size() != 2)
+                {
+                    std::wstringstream error;
+                    error << L"Unexpected regex match count '" << regexMatch.size()
+                          << L"' (expected '2') when matching '" << std::wstring(textIter, value.rawValue.cend()) << L"'";
+                    throw winrt::hresult_error(WEB_E_INVALID_JSON_STRING, winrt::hstring(error.str()));
+                }
+                value.resolvedValue += std::wstring(textIter, regexMatch[0].first);
+                const auto referencedKey = regexMatch[1];
+                if (referencedKey == key)
+                {
+                    // This key references itself, this is potentially another dead-lock condition. e.g.:
+                    // {
+                    //   'KEY_1': 'abc${env:KEY_1}def'
+                    // }
+                    // Unless KEY_1 is defined in the process environment
+                    std::wstring valueInEnvironment;
+                    const auto hr = wil::GetEnvironmentVariableW<std::wstring>(key.c_str(), valueInEnvironment);
+                    if (hr == S_OK)
+                    {
+                        // key exists in the process' environments append the value from the environment to the resolved value
+                        value.resolvedValue += valueInEnvironment;
+                    }
+                    else if (hr == HRESULT_FROM_WIN32(ERROR_ENVVAR_NOT_FOUND))
+                    {
+                        // key was not found in the process environment, we are in a dead-lock so throw
+                        std::wstringstream error;
+                        error << L"Self referencing key '" << key << L"' in environment settings";
+                        throw winrt::hresult_error(WEB_E_INVALID_JSON_STRING, winrt::hstring(error.str()));
+                    }
+                    else
+                    {
+                        // wil::GetEnvironmentVariableW failed for an unexpected reason
+                        THROW_IF_FAILED(hr);
+                    }
+                }
+                else
+                {
+                    // Add key to the list of seen keys and recursively resolve environment variables
+                    seenKeys.push_back(key);
+                    value.resolvedValue += ResolveEnvironmentVariableValue(referencedKey, envMap, seenKeys);
+                }
+                textIter = regexMatch[0].second;
+            }
+            std::copy(textIter, value.rawValue.cend(), std::back_inserter(value.resolvedValue));
+
+            return value.resolvedValue;
+        }
+        // Try and resolve the key from the process' environment variables. If key doesn't exist as an
+        // environment variable, then TryGetEnvironmentVariableW will return an empty string
+        return wil::TryGetEnvironmentVariableW<std::wstring>(key.c_str());
+    }
+}
+
+StringMap Profile::EvaluatedEnvironmentVariables() const
+{
+    try
+    {
+        return _EvaluatedEnvironmentVariables();
+    }
+    catch (...)
+    {
+        return {};
+    }
+}
+
+void Profile::ValidateEvaluatedEnvironmentVariables() const
+{
+    const auto envVars = _EvaluatedEnvironmentVariables();
+}
+
+StringMap Profile::_EvaluatedEnvironmentVariables() const
+{
+    std::map<std::wstring, VariablePair> mergedEnvVars{};
+    for (const auto& parent : _parents)
+    {
+        if (parent->HasEnvironmentVariables())
+        {
+            auto view = parent->EnvironmentVariables().GetView();
+            for (auto it = view.First(); it.HasCurrent(); it.MoveNext())
+            {
+                mergedEnvVars[std::wstring((*it).Key())] = std::wstring((*it).Value());
+            }
+        }
+    }
+
+    if (HasEnvironmentVariables())
+    {
+        auto view = EnvironmentVariables().GetView();
+        for (auto it = view.First(); it.HasCurrent(); it.MoveNext())
+        {
+            mergedEnvVars[std::wstring((*it).Key())] = std::wstring((*it).Value());
+        }
+    }
+
+    StringMap resolvedEnvVars{};
+    for (auto it = mergedEnvVars.begin(); it != mergedEnvVars.end(); ++it)
+    {
+        it->second.resolvedValue = ResolveEnvironmentVariableValue(it->first, mergedEnvVars);
+        resolvedEnvVars.Insert(it->first, it->second.resolvedValue);
+    }
+
+    return resolvedEnvVars;
 }

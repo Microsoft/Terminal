@@ -67,6 +67,9 @@ namespace winrt::Microsoft::Terminal::Settings::Model::implementation
         hstring ExpandedBackgroundImagePath() const;
         static guid GetGuidOrGenerateForJson(const Json::Value& json) noexcept;
 
+        winrt::Windows::Foundation::Collections::StringMap EvaluatedEnvironmentVariables() const;
+        void ValidateEvaluatedEnvironmentVariables() const;
+
         WINRT_PROPERTY(OriginTag, Origin, OriginTag::Custom);
 
         INHERITABLE_SETTING(Model::Profile, guid, Guid, _GenerateGuidForProfile(Name(), Source()));
@@ -122,7 +125,10 @@ namespace winrt::Microsoft::Terminal::Settings::Model::implementation
 
         INHERITABLE_SETTING(Model::Profile, Model::BellStyle, BellStyle, BellStyle::Audible);
 
+        INHERITABLE_SETTING(Model::Profile, winrt::Windows::Foundation::Collections::StringMap, EnvironmentVariables, {});
+
     private:
+        winrt::Windows::Foundation::Collections::StringMap _EvaluatedEnvironmentVariables() const;
         static std::wstring EvaluateStartingDirectory(const std::wstring& directory);
 
         static guid _GenerateGuidForProfile(const hstring& name, const hstring& source) noexcept;

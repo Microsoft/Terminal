@@ -438,6 +438,48 @@ namespace Microsoft::Terminal::Settings::Model::JsonUtils
     };
 #endif
 
+    template<typename T>
+    void SetValueForKey(Json::Value& json, std::string_view key, const T& target);
+
+    template<typename T>
+    std::decay_t<T> GetValue(const Json::Value& json);
+
+    template<>
+    struct ConversionTrait<winrt::Windows::Foundation::Collections::StringMap>
+    {
+        winrt::Windows::Foundation::Collections::StringMap FromJson(const Json::Value& json)
+        {
+            winrt::Windows::Foundation::Collections::StringMap stringMap{};
+            for (Json::Value::const_iterator it = json.begin(); it != json.end(); ++it)
+            {
+                stringMap.Insert(GetValue<winrt::hstring>(it.key()), GetValue<winrt::hstring>(*it));
+            }
+            return stringMap;
+        }
+
+        bool CanConvert(const Json::Value&)
+        {
+            return true;
+        }
+
+        Json::Value ToJson(const winrt::Windows::Foundation::Collections::StringMap& val)
+        {
+            Json::Value json{ Json::ValueType::objectValue };
+            auto view = val.GetView();
+            for (auto it = view.First(); it.HasCurrent(); it.MoveNext())
+            {
+                SetValueForKey(json, til::u16u8((*it).Key()), (*it).Value());
+            }
+
+            return json;
+        }
+
+        std::string TypeDescription() const
+        {
+            return "StringMap";
+        }
+    };
+
     template<typename T, typename TDelegatedConverter = ConversionTrait<typename std::decay<T>::type>, typename TOpt = std::optional<typename std::decay<T>::type>>
     struct OptionalConverter
     {

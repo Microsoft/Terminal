@@ -314,6 +314,8 @@ void CascadiaSettings::_ValidateSettings()
     _ValidateColorSchemesInCommands();
 
     _ValidateNoGlobalsKey();
+
+    _ValidateProfileEnvironmentVariables();
 }
 
 // Method Description:
@@ -331,6 +333,24 @@ void CascadiaSettings::_ValidateProfilesExist()
         // object is not going to be returned at any point.
 
         throw SettingsException(Microsoft::Terminal::Settings::Model::SettingsLoadErrors::NoProfiles);
+    }
+}
+
+// Method Description:
+// - Checks if the profiles contain invalid environment variable values. Only winrt::hresult_error are caught
+//   other failures, such as std::bad_alloc will not be considered an environment variable configuration issue
+void CascadiaSettings::_ValidateProfileEnvironmentVariables()
+{
+    for (const auto& profile : _allProfiles)
+    {
+        try
+        {
+            profile.ValidateEvaluatedEnvironmentVariables();
+        }
+        catch (winrt::hresult_error&)
+        {
+            _warnings.Append(Microsoft::Terminal::Settings::Model::SettingsLoadWarnings::InvalidProfileEnvironmentVariables);
+        }
     }
 }
 

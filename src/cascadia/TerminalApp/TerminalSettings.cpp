@@ -9,6 +9,7 @@
 
 using namespace winrt::Microsoft::Terminal::TerminalControl;
 using namespace winrt::Microsoft::Terminal::Settings::Model;
+using namespace winrt::Windows::Foundation::Collections;
 using namespace Microsoft::Console::Utils;
 
 namespace winrt::TerminalApp::implementation
@@ -197,6 +198,8 @@ namespace winrt::TerminalApp::implementation
             const til::color colorRef{ profile.TabColor().Value() };
             _TabColor = static_cast<uint32_t>(colorRef);
         }
+
+        _EnvironmentVariables = profile.EvaluatedEnvironmentVariables();
     }
 
     // Method Description:
