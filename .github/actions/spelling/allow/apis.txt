@@ -85,6 +85,7 @@ NOREPEAT
 ntprivapi
 oaidl
 ocidl
+offsetof
 osver
 OSVERSIONINFOEXW
 otms
@@ -113,6 +114,7 @@ sregex
 STDCPP
 STDMETHOD
 strchr
+strcpy
 streambuf
 Stubless
 Subheader

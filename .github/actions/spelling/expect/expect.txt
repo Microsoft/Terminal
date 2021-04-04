@@ -166,6 +166,7 @@ branchconfig
 BRK
 Browsable
 bsearch
+Bspace
 bstr
 BTNFACE
 buf
@@ -267,9 +268,11 @@ cmder
 CMDEXT
 Cmdlet
 cmdline
+cmh
 CMOUSEBUTTONS
 cmp
 cmt
+cmw
 cmyk
 CNL
 cnt
@@ -401,11 +404,13 @@ csbiex
 csharp
 CSHORT
 CSIDL
+Cspace
 csproj
 Csr
 csrmsg
 CSRSS
 csrutil
+css
 cstdarg
 cstddef
 cstdio
@@ -504,6 +509,7 @@ DECAWM
 DECCKM
 DECCOLM
 DECDHL
+DECDLD
 DECDWL
 DECEKBD
 DECID
@@ -785,6 +791,7 @@ FONTENUMPROC
 FONTFACE
 FONTFAMILY
 FONTHEIGHT
+FONTINFO
 fontlist
 FONTOK
 FONTSIZE
@@ -897,6 +904,7 @@ github
 gitlab
 gle
 globals
+GLYPHENTRY
 gmail
 GMEM
 GNUC
@@ -945,6 +953,7 @@ hdrstop
 HEIGHTSCROLL
 hfile
 hfont
+hfontresource
 hglobal
 hhh
 HHmm
@@ -1263,6 +1272,7 @@ locsrc
 locstudio
 Loewen
 LOGFONT
+LOGFONTA
 LOGFONTW
 logissue
 lowercased
@@ -1922,6 +1932,7 @@ realloc
 reamapping
 rects
 redef
+redefinable
 Redir
 redirector
 redist
@@ -1967,6 +1978,7 @@ rfc
 rftp
 rgb
 rgba
+RGBCOLOR
 rgbi
 rgch
 rgci
@@ -2142,6 +2154,7 @@ SIGDN
 SINGLEFLAG
 SINGLETHREADED
 siup
+sixel
 SIZEBOX
 sizeof
 SIZESCROLL
@@ -2749,6 +2762,7 @@ WTo
 wtof
 wtoi
 WTs
+WTSOFTFONT
 wtw
 wtypes
 Wubi
