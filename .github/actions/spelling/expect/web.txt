@@ -16,3 +16,6 @@ appshellintegration
 cppreference
 gfycat
 what3words
+zljubisic
+segoe
+gnachman
