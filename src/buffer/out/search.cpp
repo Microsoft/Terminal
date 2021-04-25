@@ -25,11 +25,14 @@ using namespace Microsoft::Console::Types;
 Search::Search(IUiaData& uiaData,
                const std::wstring& str,
                const Direction direction,
-               const Sensitivity sensitivity) :
+               const Sensitivity sensitivity,
+               bool regex) :
     _direction(direction),
     _sensitivity(sensitivity),
     _needle(s_CreateNeedleFromString(str)),
     _uiaData(uiaData),
+    _regex(regex),
+    _inputString(str),
     _coordAnchor(s_GetInitialAnchor(uiaData, direction))
 {
     _coordNext = _coordAnchor;
@@ -50,11 +53,14 @@ Search::Search(IUiaData& uiaData,
                const std::wstring& str,
                const Direction direction,
                const Sensitivity sensitivity,
-               const COORD anchor) :
+               const COORD anchor,
+               bool regex) :
     _direction(direction),
     _sensitivity(sensitivity),
     _needle(s_CreateNeedleFromString(str)),
     _coordAnchor(anchor),
+    _regex(regex),
+    _inputString(str),
     _uiaData(uiaData)
 {
     _coordNext = _coordAnchor;
@@ -75,20 +81,31 @@ bool Search::FindNext()
         return false;
     }
 
-    do
+    if (_regex)
     {
-        if (_FindNeedleInHaystackAt(_coordNext, _coordSelStart, _coordSelEnd))
+        const auto start = _direction == Direction::Forward ? _coordNext : COORD{ 0 };
+        const auto end = _direction == Direction::Forward ? _uiaData.GetTextBufferEndPosition() : _coordNext;
+        const auto wrapStart = _direction == Direction::Forward ? COORD{ 0 } : _coordNext;
+        const auto wrapEnd = _direction == Direction::Forward ? _coordNext : _uiaData.GetTextBufferEndPosition();
+        return _RegexHelper(start, end) || _RegexHelper(wrapStart, wrapEnd);
+    }
+    else
+    {
+        do
         {
-            _UpdateNextPosition();
-            _reachedEnd = _coordNext == _coordAnchor;
-            return true;
-        }
-        else
-        {
-            _UpdateNextPosition();
-        }
+            if (_FindNeedleInHaystackAt(_coordNext, _coordSelStart, _coordSelEnd))
+            {
+                _UpdateNextPosition();
+                _reachedEnd = _coordNext == _coordAnchor;
+                return true;
+            }
+            else
+            {
+                _UpdateNextPosition();
+            }
 
-    } while (_coordNext != _coordAnchor);
+        } while (_coordNext != _coordAnchor);
+    }
 
     return false;
 }
@@ -343,4 +360,107 @@ std::vector<std::vector<wchar_t>> Search::s_CreateNeedleFromString(const std::ws
         cells.emplace_back(chars);
     }
     return cells;
+}
+
+// Routine Description:
+// - Performs a regex search instead of a regular search within the given start and end coordinates
+// - The caller is responsible for making sure the start and end coordinates are correct with respect
+//   to the direction of the search (find previous or find next)
+// Arguments:
+// - start: the start coordinate
+// - end: the end coordinate
+// Return Value:
+// - true if we found a regex match, false otherwise
+bool Search::_RegexHelper(COORD start, COORD end)
+{
+    std::wstring concatAll;
+    auto begin = start;
+    std::wsmatch match;
+
+    // To deal with text that spans multiple lines, we will first concatenate
+    // all the text into one string and find the regex in that string
+    while (begin != end)
+    {
+        concatAll += *_uiaData.GetTextBuffer().GetTextDataAt(begin);
+        _IncrementCoord(begin);
+    }
+
+    // Create the regex object and iterator
+    std::wregex regexObj{ _inputString };
+    auto matches_begin = std::wsregex_iterator(concatAll.begin(), concatAll.end(), regexObj);
+    auto matches_end = std::wsregex_iterator();
+
+    // If we found a match, get its position and length to update the selection coordinates
+    if (matches_begin != matches_end)
+    {
+        std::wsregex_iterator desired;
+        size_t lenUpToThis = 0;
+        if (_direction == Direction::Forward)
+        {
+            desired = matches_begin;
+        }
+        else
+        {
+            // Regex iterators are not bidirectional, so we cannot create a reverse iterator out of one
+            // So, if we want to find the previous match, we need to manually progress the iterator
+            while (true)
+            {
+                desired = matches_begin;
+                ++matches_begin;
+
+                if (matches_begin == matches_end)
+                {
+                    // If we have reached the end, then break
+                    // Note: this means 'desired' now points to the correct match, so we do not
+                    // want to update 'lenUpToThis' with its length
+                    break;
+                }
+                else
+                {
+                    // We have not reached the end, update the length up to this point accordingly
+                    for (const auto ch : desired->prefix().str())
+                    {
+                        lenUpToThis += IsGlyphFullWidth(ch) ? 2 : 1;
+                    }
+                    for (const auto ch : desired->str())
+                    {
+                        lenUpToThis += IsGlyphFullWidth(ch) ? 2 : 1;
+                    }
+                }
+            }
+
+            // Increment the start coord according to the length up to this point
+            for (size_t i = 0; i < lenUpToThis; ++i)
+            {
+                _IncrementCoord(start);
+            }
+        }
+
+        for (const auto ch : desired->prefix().str())
+        {
+            _IncrementCoord(start);
+            // If the glyph is full width, advance the coord again
+            if (IsGlyphFullWidth(ch))
+            {
+                _IncrementCoord(start);
+            }
+        }
+        _coordSelStart = start;
+
+        for (const auto ch : desired->str())
+        {
+            _IncrementCoord(start);
+            // If the glyph is full width, advance the coord again
+            if (IsGlyphFullWidth(ch))
+            {
+                _IncrementCoord(start);
+            }
+        }
+        // Decrement once for the off by one error before setting _coordSelEnd
+        _DecrementCoord(start);
+        _coordSelEnd = start;
+
+        return true;
+    }
+    return false;
 }

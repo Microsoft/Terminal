@@ -22,6 +22,7 @@ namespace winrt::Microsoft::Terminal::Control::implementation
         _focusableElements.insert(TextBox());
         _focusableElements.insert(CloseButton());
         _focusableElements.insert(CaseSensitivityButton());
+        _focusableElements.insert(RegexButton());
         _focusableElements.insert(GoForwardButton());
         _focusableElements.insert(GoBackwardButton());
     }
@@ -51,6 +52,15 @@ namespace winrt::Microsoft::Terminal::Control::implementation
     }
 
     // Method Description:
+    // - Check if the current search is a regex one
+    // Return Value:
+    // - bool: whether the current search is a regex one (regex button is checked)
+    bool SearchBoxControl::_IsRegex()
+    {
+        return RegexButton().IsChecked().GetBoolean();
+    }
+
+    // Method Description:
     // - Handler for pressing Enter on TextBox, trigger
     //   text search
     // Arguments:
@@ -65,11 +75,11 @@ namespace winrt::Microsoft::Terminal::Control::implementation
             auto const state = CoreWindow::GetForCurrentThread().GetKeyState(winrt::Windows::System::VirtualKey::Shift);
             if (WI_IsFlagSet(state, CoreVirtualKeyStates::Down))
             {
-                _SearchHandlers(TextBox().Text(), !_GoForward(), _CaseSensitive());
+                _SearchHandlers(TextBox().Text(), !_GoForward(), _CaseSensitive(), _IsRegex());
             }
             else
             {
-                _SearchHandlers(TextBox().Text(), _GoForward(), _CaseSensitive());
+                _SearchHandlers(TextBox().Text(), _GoForward(), _CaseSensitive(), _IsRegex());
             }
             e.Handled(true);
         }
@@ -160,7 +170,7 @@ namespace winrt::Microsoft::Terminal::Control::implementation
         }
 
         // kick off search
-        _SearchHandlers(TextBox().Text(), _GoForward(), _CaseSensitive());
+        _SearchHandlers(TextBox().Text(), _GoForward(), _CaseSensitive(), _IsRegex());
     }
 
     // Method Description:
@@ -181,7 +191,7 @@ namespace winrt::Microsoft::Terminal::Control::implementation
         }
 
         // kick off search
-        _SearchHandlers(TextBox().Text(), _GoForward(), _CaseSensitive());
+        _SearchHandlers(TextBox().Text(), _GoForward(), _CaseSensitive(), _IsRegex());
     }
 
     // Method Description:
