@@ -10,6 +10,8 @@
 #include "ascii.hpp"
 #include "../../types/inc/utils.hpp"
 
+#include <Shlwapi.h>
+
 using namespace Microsoft::Console;
 using namespace Microsoft::Console::VirtualTerminal;
 
@@ -788,6 +790,17 @@ bool OutputStateMachineEngine::ActionOscDispatch(const wchar_t /*wch*/,
         TermTelemetry::Instance().Log(TermTelemetry::Codes::OSCRCC);
         break;
     }
+    case OscActionCodes::SetWorkingDirectory:
+    {
+        std::wstring hostname;
+        std::wstring path;
+        success = _ParseFileUri(string, hostname, path);
+        if (success && !path.empty())
+        {
+            success = _dispatch->SetWorkingDirectory(hostname, path);
+        }
+        break;
+    }
     case OscActionCodes::Hyperlink:
     {
         std::wstring params;
@@ -953,6 +966,55 @@ try
     return tableIndexes.size() > 0 && rgbs.size() > 0;
 }
 CATCH_LOG_RETURN_FALSE()
+
+#pragma warning(push)
+#pragma warning(disable : 26477) // Suppress USE_NULLPTR_NOT_CONSTANT
+
+// Routine Description:
+// - Given a file URI string, attempts to parse the URI encoded.
+//   The spec of the file URI is https://freedesktop.org/wiki/Specifications/file-uri-spec/.
+//   The file URIs are of the form:
+//        file://<hostname>/<path>
+bool OutputStateMachineEngine::_ParseFileUri(const std::wstring_view string,
+                                             std::wstring& hostname,
+                                             std::wstring& path) const
+{
+    if (string.size() < 8)
+    {
+        return false;
+    }
+
+    const auto prefix = string.substr(0, 7);
+    if (prefix.compare(L"file://") != 0)
+    {
+        // We don't support URI format other than "file://".
+        return false;
+    }
+
+    hostname.clear();
+    path.clear();
+
+    size_t current = 7;
+    const size_t nextSlash = string.find(L"/", current);
+    if (nextSlash == std::wstring::npos)
+    {
+        // Invalid URI. Ignore it.
+        return false;
+    }
+
+    hostname = string.substr(current, nextSlash - current);
+    current = nextSlash;
+    std::wstring _path = std::wstring(string.substr(current, std::wstring::npos));
+    if (SUCCEEDED(UrlUnescapeInPlace(_path.data(), URL_ESCAPE_AS_UTF8 | URL_DONT_UNESCAPE_EXTRA_INFO)))
+    {
+        const auto end = _path.find(L'\0');
+        path = _path.substr(0, end);
+    }
+
+    return true;
+}
+
+#pragma warning(pop)
 
 #pragma warning(push)
 #pragma warning(disable : 26445) // Suppress lifetime check for a reference to gsl::span or std::string_view

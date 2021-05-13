@@ -1003,6 +1003,7 @@ horiz
 HORZ
 hostable
 hostlib
+hostname
 HPA
 HPAINTBUFFER
 hpcon
