@@ -334,6 +334,9 @@ using namespace Microsoft::Console::Render;
 
         auto& polyWidth = _polyWidths.emplace_back(cchLine, 0);
 
+        // If we have a soft font, we only use the character's lower 7 bits.
+        const auto softFontCharMask = _lastFontType == FontType::Soft ? L'\x7F' : ~0;
+
         // Sum up the total widths the entire line/run is expected to take while
         // copying the pixel widths into a structure to direct GDI how many pixels to use per character.
         size_t cchCharWidths = 0;
@@ -346,6 +349,7 @@ using namespace Microsoft::Console::Render;
             // Our GDI renderer hasn't and isn't going to handle things above U+FFFF or sequences.
             // So replace anything complicated with a replacement character for drawing purposes.
             polyString[i] = cluster.GetTextAsSingle();
+            polyString[i] &= softFontCharMask;
             polyWidth[i] = gsl::narrow<int>(cluster.GetColumns()) * coordFontSize.X;
             cchCharWidths += polyWidth[i];
         }
