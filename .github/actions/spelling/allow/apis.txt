@@ -57,6 +57,7 @@ IMap
 IObject
 iosfwd
 IPackage
+IPane
 IPeasant
 IStorage
 istream

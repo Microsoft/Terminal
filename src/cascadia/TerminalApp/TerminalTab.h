@@ -2,9 +2,10 @@
 // Licensed under the MIT license.
 
 #pragma once
-#include "Pane.h"
 #include "ColorPickupFlyout.h"
 #include "TabBase.h"
+#include "LeafPane.h"
+#include "ParentPane.h"
 #include "TerminalTab.g.h"
 
 static constexpr double HeaderRenameBoxWidthDefault{ 165 };
@@ -24,7 +25,7 @@ namespace winrt::TerminalApp::implementation
         TerminalTab(const GUID& profile, const winrt::Microsoft::Terminal::Control::TermControl& control);
 
         // Called after construction to perform the necessary setup, which relies on weak_ptr
-        void Initialize(const winrt::Microsoft::Terminal::Control::TermControl& control);
+        void Initialize();
 
         winrt::Microsoft::Terminal::Control::TermControl GetActiveTerminalControl() const;
         std::optional<GUID> GetFocusedProfile() const noexcept;
@@ -80,7 +81,7 @@ namespace winrt::TerminalApp::implementation
         int GetLeafPaneCount() const noexcept;
 
         void TogglePaneReadOnly();
-        std::shared_ptr<Pane> GetActivePane() const;
+        TerminalApp::LeafPane GetActivePane() const;
 
         winrt::TerminalApp::TerminalTabStatus TabStatus()
         {
@@ -95,15 +96,16 @@ namespace winrt::TerminalApp::implementation
         TYPED_EVENT(TaskbarProgressChanged, IInspectable, IInspectable);
 
     private:
-        std::shared_ptr<Pane> _rootPane{ nullptr };
-        std::shared_ptr<Pane> _activePane{ nullptr };
-        std::shared_ptr<Pane> _zoomedPane{ nullptr };
+        IPane _rootPane;
+        TerminalApp::LeafPane _zoomedPane;
         winrt::hstring _lastIconPath{};
         winrt::TerminalApp::ColorPickupFlyout _tabColorPickup{};
         std::optional<winrt::Windows::UI::Color> _themeTabColor{};
         std::optional<winrt::Windows::UI::Color> _runtimeTabColor{};
         winrt::TerminalApp::TabHeaderControl _headerControl{};
         winrt::TerminalApp::TerminalTabStatus _tabStatus{};
+
+        winrt::event_token _rootPaneTypeChangedToken{ 0 };
 
         std::vector<uint32_t> _mruPanes;
         uint32_t _nextPaneId{ 0 };
@@ -129,12 +131,14 @@ namespace winrt::TerminalApp::implementation
 
         void _RefreshVisualState();
 
-        void _BindEventHandlers(const winrt::Microsoft::Terminal::Control::TermControl& control) noexcept;
+        void _BindEventHandlers() noexcept;
 
         void _AttachEventHandlersToControl(const winrt::Microsoft::Terminal::Control::TermControl& control);
-        void _AttachEventHandlersToPane(std::shared_ptr<Pane> pane);
+        void _AttachEventHandlersToLeafPane(TerminalApp::LeafPane pane);
+        void _SetupRootPaneEventHandlers();
+        void _RemoveRootPaneEventHandlers();
 
-        void _UpdateActivePane(std::shared_ptr<Pane> pane);
+        void _UpdateActivePane(TerminalApp::LeafPane pane);
 
         winrt::hstring _GetActiveTitle() const;
 

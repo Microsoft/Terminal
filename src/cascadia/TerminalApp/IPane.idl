@@ -1,0 +1,45 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
+
+import "LeafPane.idl";
+
+namespace TerminalApp
+{
+    struct SnapSizeResult
+    {
+        Single lower;
+        Single higher;
+    };
+
+    interface IPane
+    {
+        void FocusPane(UInt32 idNum);
+        void FocusFirstChild();
+        UInt32 GetLeafPaneCount();
+        IPane GetActivePane();
+        IPane FindFirstLeaf();
+        Boolean HasFocusedChild();
+
+        Boolean ContainsReadOnly();
+
+        Windows.UI.Xaml.Controls.Grid GetRootElement();
+
+        void Shutdown();
+        void ClearActive();
+        void UpdateSettings(Microsoft.Terminal.Settings.Model.TerminalSettingsCreateResult settings, Guid profile);
+
+        void ResizeContent(Windows.Foundation.Size newSize);
+        Single CalcSnappedDimensionSingle(Boolean widthOrHeight, Single dimension);
+        Windows.Foundation.Size GetMinSize();
+
+        void Maximize(IPane paneToZoom);
+        void Restore(IPane paneToUnzoom);
+
+        Windows.Foundation.IReference<Microsoft.Terminal.Settings.Model.SplitState> PreCalculateAutoSplit(IPane target, Windows.Foundation.Size parentSize);
+        Windows.Foundation.IReference<Boolean> PreCalculateCanSplit(IPane target, Microsoft.Terminal.Settings.Model.SplitState splitType, Single splitSize, Windows.Foundation.Size availableSpace);
+
+        SnapSizeResult CalcSnappedDimension(Boolean widthOrHeight, Single fullSize);
+
+        event Windows.Foundation.TypedEventHandler<IPane, IPane> PaneTypeChanged;
+    }
+}

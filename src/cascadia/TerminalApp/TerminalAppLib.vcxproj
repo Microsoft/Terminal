@@ -65,6 +65,12 @@
     <Page Include="CommandPalette.xaml">
       <SubType>Designer</SubType>
     </Page>
+    <Page Include="LeafPane.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="ParentPane.xaml">
+      <SubType>Designer</SubType>
+    </Page>
   </ItemGroup>
   <!-- ========================= Headers ======================== -->
   <ItemGroup>
@@ -123,7 +129,12 @@
     <ClInclude Include="EmptyStringVisibilityConverter.h">
       <DependentUpon>EmptyStringVisibilityConverter.idl</DependentUpon>
     </ClInclude>
-    <ClInclude Include="Pane.h" />
+    <ClInclude Include="LeafPane.h">
+      <DependentUpon>LeafPane.xaml</DependentUpon>
+    </ClInclude>
+    <ClInclude Include="ParentPane.h">
+      <DependentUpon>ParentPane.xaml</DependentUpon>
+    </ClInclude>
     <ClInclude Include="ColorHelper.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="ShortcutActionDispatch.h">
@@ -206,7 +217,12 @@
     <ClCompile Include="EmptyStringVisibilityConverter.cpp">
       <DependentUpon>EmptyStringVisibilityConverter.idl</DependentUpon>
     </ClCompile>
-    <ClCompile Include="Pane.cpp" />
+    <ClCompile Include="LeafPane.cpp">
+      <DependentUpon>LeafPane.xaml</DependentUpon>
+    </ClCompile>
+    <ClCompile Include="ParentPane.cpp">
+      <DependentUpon>ParentPane.xaml</DependentUpon>
+    </ClCompile>
     <ClCompile Include="Pane.LayoutSizeNode.cpp" />
     <ClCompile Include="ColorHelper.cpp" />
     <ClCompile Include="DebugTapConnection.cpp" />
@@ -250,6 +266,7 @@
     <Midl Include="ShortcutActionDispatch.idl" />
     <Midl Include="AppKeyBindings.idl" />
     <Midl Include="AppLogic.idl" />
+    <Midl Include="IPane.idl" />
     <Midl Include="MinMaxCloseControl.idl">
       <DependentUpon>MinMaxCloseControl.xaml</DependentUpon>
       <SubType>Code</SubType>
@@ -287,6 +304,14 @@
     </Midl>
     <Midl Include="CommandPalette.idl">
       <DependentUpon>CommandPalette.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Midl>
+    <Midl Include="LeafPane.idl">
+      <DependentUpon>LeafPane.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Midl>
+    <Midl Include="ParentPane.idl">
+      <DependentUpon>ParentPane.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Midl>
     <Midl Include="FilteredCommand.idl" />

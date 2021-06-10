@@ -638,11 +638,9 @@ namespace winrt::TerminalApp::implementation
         {
             _UnZoomIfNeeded();
 
-            auto pane = terminalTab->GetActivePane();
-
             if (const auto pane{ terminalTab->GetActivePane() })
             {
-                if (const auto control{ pane->GetTerminalControl() })
+                if (const auto control{ pane.TerminalControl() })
                 {
                     if (control.ReadOnly())
                     {
@@ -661,7 +659,7 @@ namespace winrt::TerminalApp::implementation
                         }
                     }
 
-                    pane->Close();
+                    pane.Close();
                 }
             }
         }

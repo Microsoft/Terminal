@@ -10,7 +10,10 @@
     <ClCompile Include="init.cpp" />
     <ClCompile Include="pch.cpp" />
     <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
-    <ClCompile Include="Pane.cpp">
+    <ClCompile Include="LeafPane.cpp">
+      <Filter>pane</Filter>
+    </ClCompile>
+    <ClCompile Include="ParentPane.cpp">
       <Filter>pane</Filter>
     </ClCompile>
     <ClCompile Include="Tab.cpp">
@@ -58,6 +61,12 @@
       <Filter>app</Filter>
     </ClInclude>
     <ClInclude Include="Pane.h">
+      <Filter>pane</Filter>
+    </ClInclude>
+    <ClInclude Include="LeafPane.h">
+      <Filter>pane</Filter>
+    </ClInclude>
+    <ClInclude Include="ParentPane.h">
       <Filter>pane</Filter>
     </ClInclude>
     <ClInclude Include="Tab.h">
@@ -116,6 +125,15 @@
     <Midl Include="TerminalTab.idl">
       <Filter>tab</Filter>
     </Midl>
+    <Midl Include="IPane.idl">
+      <Filter>pane</Filter>
+    </Midl>
+    <Midl Include="LeafPane.idl">
+      <Filter>pane</Filter>
+    </Midl>
+    <Midl Include="ParentPane.idl">
+      <Filter>pane</Filter>
+    </Midl>
     <Midl Include="FilteredCommand.idl">
       <Filter>commandPalette</Filter>
     </Midl>
@@ -138,6 +156,12 @@
     </Page>
     <Page Include="TabHeaderControl.xaml">
       <Filter>controls</Filter>
+    </Page>
+    <Page Include="LeafPane.xaml">
+      <Filter>pane</Filter>
+    </Page>
+    <Page Include="ParentPane.xaml">
+      <Filter>pane</Filter>
     </Page>
     <Page Include="TerminalPage.xaml">
       <Filter>controls</Filter>

@@ -1002,7 +1002,7 @@ namespace winrt::TerminalApp::implementation
         term.RestorePointerCursor({ get_weak(), &TerminalPage::_RestorePointerCursorHandler });
 
         // Bind Tab events to the TermControl and the Tab's Pane
-        hostingTab.Initialize(term);
+        hostingTab.Initialize();
 
         auto weakTab{ hostingTab.get_weak() };
         auto weakThis{ get_weak() };
