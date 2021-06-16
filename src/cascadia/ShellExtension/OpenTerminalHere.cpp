@@ -7,8 +7,8 @@
 #include <ShlObj.h>
 
 // TODO GH#6112: Localize these strings
-static constexpr std::wstring_view VerbDisplayName{ L"Open in Windows Terminal" };
-static constexpr std::wstring_view VerbDevBuildDisplayName{ L"Open in Windows Terminal (Dev Build)" };
+static constexpr std::wstring_view VerbDisplayName{ L"Open Windows Terminal here" };
+static constexpr std::wstring_view VerbDevBuildDisplayName{ L"Open Windows Terminal here (Dev Build)" };
 static constexpr std::wstring_view VerbName{ L"WindowsTerminalOpenHere" };
 
 // This code is aggressively copied from
@@ -103,7 +103,15 @@ HRESULT OpenTerminalHere::GetState(IShellItemArray* /*psiItemArray*/,
     // We however don't need to bother with any of that, so we'll just return
     // ECS_ENABLED.
 
-    *pCmdState = ECS_ENABLED;
+    // Show the verb only when shift key is down
+    if ((GetKeyState(VK_SHIFT) & 0x8000) != 0)
+    {
+        *pCmdState = ECS_ENABLED;
+    }
+    else
+    {
+        *pCmdState = ECS_HIDDEN;
+    }
     return S_OK;
 }
 
