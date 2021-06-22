@@ -12,6 +12,7 @@
   <ItemGroup>
     <ClCompile Include="BaseTests.cpp" />
     <ClCompile Include="BitmapTests.cpp" />
+    <ClCompile Include="EnumSetTests.cpp" />
     <ClCompile Include="OperatorTests.cpp" />
     <ClCompile Include="PointTests.cpp" />
     <ClCompile Include="StaticMapTests.cpp" />
