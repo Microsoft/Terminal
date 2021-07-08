@@ -28,8 +28,10 @@ namespace winrt::Microsoft::Terminal::Remoting::implementation
         CATCH_LOG();
     }
 
-    // This is a private constructor to be used in unit tests, where we don't
-    // want each Monarch to necessarily use the current PID.
+    // This constructor is intended to be used in unit tests,
+    // but we need to make it public in order to use make_self
+    // in the tests. It's not exposed through the idl though
+    // so it's not _truly_ fully public which should be acceptable.
     Monarch::Monarch(const uint64_t testPID) :
         _ourPID{ testPID }
     {
@@ -732,20 +734,30 @@ namespace winrt::Microsoft::Terminal::Remoting::implementation
         try
         {
             args.FoundMatch(false);
+
+            // If a WindowID is provided from the args, use that first.
             uint64_t windowId = 0;
-            // If no name was provided, then just summon the MRU window.
-            if (searchedForName.empty())
+            if (args.WindowID())
             {
-                // Use the value of the `desktop` arg to determine if we should
-                // limit to the current desktop (desktop:onCurrent) or not
-                // (desktop:any or desktop:toCurrent)
-                windowId = _getMostRecentPeasantID(args.OnCurrentDesktop(), false);
+                windowId = args.WindowID().Value();
             }
             else
             {
-                // Try to find a peasant that currently has this name
-                windowId = _lookupPeasantIdForName(searchedForName);
+                // If no name was provided, then just summon the MRU window.
+                if (searchedForName.empty())
+                {
+                    // Use the value of the `desktop` arg to determine if we should
+                    // limit to the current desktop (desktop:onCurrent) or not
+                    // (desktop:any or desktop:toCurrent)
+                    windowId = _getMostRecentPeasantID(args.OnCurrentDesktop(), false);
+                }
+                else
+                {
+                    // Try to find a peasant that currently has this name
+                    windowId = _lookupPeasantIdForName(searchedForName);
+                }
             }
+
             if (auto targetPeasant{ _getPeasant(windowId) })
             {
                 targetPeasant.Summon(args.SummonBehavior());
@@ -760,6 +772,51 @@ namespace winrt::Microsoft::Terminal::Remoting::implementation
                               TraceLoggingWideString(searchedForName.c_str(), "searchedForName", "The name of the window we tried to summon"),
                               TraceLoggingLevel(WINEVENT_LEVEL_VERBOSE),
                               TraceLoggingKeyword(TIL_KEYWORD_TRACE));
+        }
+    }
+
+    // Method Description:
+    // - This method creates a map of peasant IDs to peasant names
+    //   while removing dead peasants.
+    // Arguments:
+    // - <none>
+    // Return Value:
+    // - A map of peasant IDs to their names.
+    Windows::Foundation::Collections::IMapView<uint64_t, winrt::hstring> Monarch::GetPeasantNames()
+    {
+        auto names = winrt::single_threaded_map<uint64_t, winrt::hstring>();
+
+        std::vector<uint64_t> peasantsToErase{};
+        for (const auto& [id, p] : _peasants)
+        {
+            try
+            {
+                names.Insert(id, p.WindowName());
+            }
+            catch (...)
+            {
+                LOG_CAUGHT_EXCEPTION();
+                peasantsToErase.push_back(id);
+            }
+        }
+
+        // Remove the dead peasants we came across while iterating.
+        for (const auto& id : peasantsToErase)
+        {
+            _peasants.erase(id);
+            _clearOldMruEntries(id);
+        }
+
+        return names.GetView();
+    }
+
+    void Monarch::SummonAllWindows()
+    {
+        for (const auto [id, peasant] : _peasants)
+        {
+            SummonWindowBehavior args{};
+            args.ToggleVisibility(false);
+            peasant.Summon(args);
         }
     }
 }

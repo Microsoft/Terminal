@@ -92,6 +92,9 @@ namespace winrt::TerminalApp::implementation
         size_t GetLastActiveControlTaskbarState();
         size_t GetLastActiveControlTaskbarProgress();
 
+        bool GetMinimizeToTray();
+        bool GetAlwaysShowTrayIcon();
+
         winrt::Windows::Foundation::IAsyncOperation<winrt::Windows::UI::Xaml::Controls::ContentDialogResult> ShowDialog(winrt::Windows::UI::Xaml::Controls::ContentDialog dialog);
 
         Windows::Foundation::Collections::IMapView<Microsoft::Terminal::Control::KeyChord, Microsoft::Terminal::Settings::Model::Command> GlobalHotkeys();
@@ -163,6 +166,7 @@ namespace winrt::TerminalApp::implementation
         FORWARDED_TYPED_EVENT(RenameWindowRequested, Windows::Foundation::IInspectable, winrt::TerminalApp::RenameWindowRequestedArgs, _root, RenameWindowRequested);
         FORWARDED_TYPED_EVENT(IsQuakeWindowChanged, Windows::Foundation::IInspectable, Windows::Foundation::IInspectable, _root, IsQuakeWindowChanged);
         FORWARDED_TYPED_EVENT(SummonWindowRequested, Windows::Foundation::IInspectable, Windows::Foundation::IInspectable, _root, SummonWindowRequested);
+        FORWARDED_TYPED_EVENT(MinimizeToTrayRequested, Windows::Foundation::IInspectable, Windows::Foundation::IInspectable, _root, MinimizeToTrayRequested);
 
 #ifdef UNIT_TESTING
         friend class TerminalAppLocalTests::CommandlineTest;

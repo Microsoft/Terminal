@@ -71,6 +71,9 @@ namespace TerminalApp
         UInt64 GetLastActiveControlTaskbarState();
         UInt64 GetLastActiveControlTaskbarProgress();
 
+        Boolean GetMinimizeToTray();
+        Boolean GetAlwaysShowTrayIcon();
+
         FindTargetWindowResult FindTargetWindow(String[] args);
 
         Windows.Foundation.Collections.IMapView<Microsoft.Terminal.Control.KeyChord, Microsoft.Terminal.Settings.Model.Command> GlobalHotkeys();
@@ -93,5 +96,6 @@ namespace TerminalApp
         event Windows.Foundation.TypedEventHandler<Object, Object> SettingsChanged;
         event Windows.Foundation.TypedEventHandler<Object, Object> IsQuakeWindowChanged;
         event Windows.Foundation.TypedEventHandler<Object, Object> SummonWindowRequested;
+        event Windows.Foundation.TypedEventHandler<Object, Object> MinimizeToTrayRequested;
     }
 }

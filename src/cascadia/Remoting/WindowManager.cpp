@@ -509,4 +509,16 @@ namespace winrt::Microsoft::Terminal::Remoting::implementation
         _monarch.SummonWindow(args);
     }
 
+    void WindowManager::SummonAllWindows()
+    {
+        _monarch.SummonAllWindows();
+    }
+
+    Windows::Foundation::Collections::IMapView<uint64_t, winrt::hstring> WindowManager::GetPeasantNames()
+    {
+        // We should only get called when we're the monarch since the monarch
+        // is the only one that knows about all peasants.
+        return _monarch.GetPeasantNames();
+    }
+
 }
