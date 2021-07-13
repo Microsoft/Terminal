@@ -64,10 +64,6 @@ namespace winrt::Microsoft::Terminal::Control::implementation
         _interactivity = winrt::make<implementation::ControlInteractivity>(settings, connection);
         _core = _interactivity.Core();
 
-        // Use a manual revoker on the output event, so we can immediately stop
-        // worrying about it on destruction.
-        _coreOutputEventToken = _core.ReceivedOutput({ this, &TermControl::_coreReceivedOutput });
-
         // These events might all be triggered by the connection, but that
         // should be drained and closed before we complete destruction. So these
         // are safe.
@@ -104,17 +100,15 @@ namespace winrt::Microsoft::Terminal::Control::implementation
             }
         });
 
-        // Many of these ThrottledFunc's should be inside ControlCore. However,
-        // currently they depend on the Dispatcher() of the UI thread, which the
-        // Core eventually won't have access to. When we get to
-        // https://github.com/microsoft/terminal/projects/5#card-50760282
-        // then we'll move the applicable ones.
-        //
+        // Get our dispatcher. This will get us the same dispatcher as
+        // TermControl::Dispatcher().
+        auto dispatcher = winrt::Windows::System::DispatcherQueue::GetForCurrentThread();
+
         // These four throttled functions are triggered by terminal output and interact with the UI.
         // Since Close() is the point after which we are removed from the UI, but before the
         // destructor has run, we MUST check control->_IsClosing() before actually doing anything.
         _tsfTryRedrawCanvas = std::make_shared<ThrottledFuncTrailing<>>(
-            Dispatcher(),
+            dispatcher,
             TsfRedrawInterval,
             [weakThis = get_weak()]() {
                 if (auto control{ weakThis.get() }; !control->_IsClosing())
@@ -123,18 +117,8 @@ namespace winrt::Microsoft::Terminal::Control::implementation
                 }
             });
 
-        _updatePatternLocations = std::make_shared<ThrottledFuncTrailing<>>(
-            Dispatcher(),
-            UpdatePatternLocationsInterval,
-            [weakThis = get_weak()]() {
-                if (auto control{ weakThis.get() }; !control->_IsClosing())
-                {
-                    control->_core.UpdatePatternLocations();
-                }
-            });
-
         _playWarningBell = std::make_shared<ThrottledFuncLeading>(
-            Dispatcher(),
+            dispatcher,
             TerminalWarningBellInterval,
             [weakThis = get_weak()]() {
                 if (auto control{ weakThis.get() }; !control->_IsClosing())
@@ -144,7 +128,7 @@ namespace winrt::Microsoft::Terminal::Control::implementation
             });
 
         _updateScrollBar = std::make_shared<ThrottledFuncTrailing<ScrollBarUpdate>>(
-            Dispatcher(),
+            dispatcher,
             ScrollBarUpdateInterval,
             [weakThis = get_weak()](const auto& update) {
                 if (auto control{ weakThis.get() }; !control->_IsClosing())
@@ -540,7 +524,7 @@ namespace winrt::Microsoft::Terminal::Control::implementation
         {
             // create a custom automation peer with this code pattern:
             // (https://docs.microsoft.com/en-us/windows/uwp/design/accessibility/custom-automation-peers)
-            if (const auto& interactivityAutoPeer = _interactivity.OnCreateAutomationPeer())
+            if (const auto& interactivityAutoPeer{ _interactivity.OnCreateAutomationPeer() })
             {
                 _automationPeer = winrt::make<implementation::TermControlAutomationPeer>(this, interactivityAutoPeer);
                 return _automationPeer;
@@ -1258,23 +1242,6 @@ namespace winrt::Microsoft::Terminal::Control::implementation
         CATCH_LOG();
     }
 
-    void TermControl::_coreReceivedOutput(const IInspectable& /*sender*/,
-                                          const IInspectable& /*args*/)
-    {
-        // Queue up a throttled UpdatePatternLocations call. In the future, we
-        // should have the _updatePatternLocations ThrottledFunc internal to
-        // ControlCore, and run on that object's dispatcher queue.
-        //
-        // We're not doing that quite yet, because the Core will eventually
-        // be out-of-proc from the UI thread, and won't be able to just use
-        // the UI thread as the dispatcher queue thread.
-        //
-        // THIS IS CALLED ON EVERY STRING OF TEXT OUTPUT TO THE TERMINAL. Think
-        // twice before adding anything here.
-
-        _updatePatternLocations->Run();
-    }
-
     // Method Description:
     // - Reset the font size of the terminal to its default size.
     // Arguments:
@@ -1312,8 +1279,6 @@ namespace winrt::Microsoft::Terminal::Control::implementation
         _updateScrollBar->ModifyPending([](auto& update) {
             update.newValue.reset();
         });
-
-        _updatePatternLocations->Run();
     }
 
     // Method Description:
@@ -1647,7 +1612,6 @@ namespace winrt::Microsoft::Terminal::Control::implementation
         update.newValue = args.ViewTop();
 
         _updateScrollBar->Run(update);
-        _updatePatternLocations->Run();
     }
 
     // Method Description:
@@ -1714,6 +1678,7 @@ namespace winrt::Microsoft::Terminal::Control::implementation
 
             _core.ReceivedOutput(_coreOutputEventToken);
             _RestorePointerCursorHandlers(*this, nullptr);
+
             // Disconnect the TSF input control so it doesn't receive EditContext events.
             TSFInputControl().Close();
             _autoScrollTimer.Stop();
