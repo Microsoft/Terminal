@@ -8,32 +8,27 @@
 
 namespace winrt::Microsoft::Terminal::Control::implementation
 {
-    KeyChord::KeyChord() noexcept :
-        _modifiers{ 0 },
-        _vkey{ 0 }
+    static Control::KeyModifiers modifiersFromBooleans(bool ctrl, bool alt, bool shift, bool win)
+    {
+        Control::KeyModifiers modifiers = Control::KeyModifiers::None;
+        WI_SetFlagIf(modifiers, Control::KeyModifiers::Ctrl, ctrl);
+        WI_SetFlagIf(modifiers, Control::KeyModifiers::Alt, alt);
+        WI_SetFlagIf(modifiers, Control::KeyModifiers::Shift, shift);
+        WI_SetFlagIf(modifiers, Control::KeyModifiers::Windows, win);
+        return modifiers;
+    }
+
+    KeyChord::KeyChord(bool ctrl, bool alt, bool shift, bool win, int32_t vkey, int32_t scanCode) noexcept :
+        _modifiers{ modifiersFromBooleans(ctrl, alt, shift, win) },
+        _vkey{ vkey },
+        _scanCode{ scanCode }
     {
     }
 
-    KeyChord::KeyChord(bool ctrl, bool alt, bool shift, int32_t vkey) noexcept :
-        _modifiers{ (ctrl ? Control::KeyModifiers::Ctrl : Control::KeyModifiers::None) |
-                    (alt ? Control::KeyModifiers::Alt : Control::KeyModifiers::None) |
-                    (shift ? Control::KeyModifiers::Shift : Control::KeyModifiers::None) },
-        _vkey{ vkey }
-    {
-    }
-
-    KeyChord::KeyChord(bool ctrl, bool alt, bool shift, bool win, int32_t vkey) noexcept :
-        _modifiers{ (ctrl ? Control::KeyModifiers::Ctrl : Control::KeyModifiers::None) |
-                    (alt ? Control::KeyModifiers::Alt : Control::KeyModifiers::None) |
-                    (shift ? Control::KeyModifiers::Shift : Control::KeyModifiers::None) |
-                    (win ? Control::KeyModifiers::Windows : Control::KeyModifiers::None) },
-        _vkey{ vkey }
-    {
-    }
-
-    KeyChord::KeyChord(Control::KeyModifiers const& modifiers, int32_t vkey) noexcept :
+    KeyChord::KeyChord(const Control::KeyModifiers& modifiers, int32_t vkey, int32_t scanCode) noexcept :
         _modifiers{ modifiers },
-        _vkey{ vkey }
+        _vkey{ vkey },
+        _scanCode{ scanCode }
     {
     }
 
@@ -55,5 +50,13 @@ namespace winrt::Microsoft::Terminal::Control::implementation
     void KeyChord::Vkey(int32_t value) noexcept
     {
         _vkey = value;
+    }
+
+    int32_t KeyChord::ScanCode() noexcept {
+        return _scanCode;
+    }
+
+    void KeyChord::ScanCode(int32_t value) noexcept {
+        _scanCode = value;
     }
 }
