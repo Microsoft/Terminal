@@ -26,8 +26,8 @@ namespace Microsoft::Console::Render
 
         [[nodiscard]] HRESULT SetHwnd(const HWND hwnd) noexcept;
 
-        [[nodiscard]] HRESULT InvalidateSelection(const std::vector<SMALL_RECT>& rectangles) noexcept override;
-        [[nodiscard]] HRESULT InvalidateScroll(const COORD* const pcoordDelta) noexcept override;
+        [[nodiscard]] HRESULT TriggerSelection(IRenderData* pData) noexcept override;
+        [[nodiscard]] HRESULT TriggerScroll(const COORD* const pcoordDelta) noexcept override;
         [[nodiscard]] HRESULT InvalidateSystem(const RECT* const prcDirtyClient) noexcept override;
         [[nodiscard]] HRESULT Invalidate(const SMALL_RECT* const psrRegion) noexcept override;
         [[nodiscard]] HRESULT InvalidateCursor(const SMALL_RECT* const psrRegion) noexcept override;
@@ -36,36 +36,36 @@ namespace Microsoft::Console::Render
         [[nodiscard]] HRESULT PrepareForTeardown(_Out_ bool* const pForcePaint) noexcept override;
 
         [[nodiscard]] HRESULT StartPaint() noexcept override;
+        [[nodiscard]] HRESULT PaintFrame(IRenderData* pData) noexcept override;
         [[nodiscard]] HRESULT EndPaint() noexcept override;
         [[nodiscard]] HRESULT Present() noexcept override;
 
-        [[nodiscard]] HRESULT ScrollFrame() noexcept override;
+        [[nodiscard]] HRESULT ScrollFrame() noexcept;
 
-        [[nodiscard]] HRESULT ResetLineTransform() noexcept override;
+        [[nodiscard]] HRESULT ResetLineTransform() noexcept;
         [[nodiscard]] HRESULT PrepareLineTransform(const LineRendition lineRendition,
                                                    const size_t targetRow,
-                                                   const size_t viewportLeft) noexcept override;
+                                                   const size_t viewportLeft) noexcept;
 
-        [[nodiscard]] HRESULT PaintBackground() noexcept override;
+        [[nodiscard]] HRESULT PaintBackground() noexcept;
         [[nodiscard]] HRESULT PaintBufferLine(gsl::span<const Cluster> const clusters,
                                               const COORD coord,
                                               const bool trimLeft,
-                                              const bool lineWrapped) noexcept override;
+                                              const bool lineWrapped) noexcept;
         [[nodiscard]] HRESULT PaintBufferGridLines(const GridLines lines,
                                                    const COLORREF color,
                                                    const size_t cchLine,
-                                                   const COORD coordTarget) noexcept override;
-        [[nodiscard]] HRESULT PaintSelection(const SMALL_RECT rect) noexcept override;
+                                                   const COORD coordTarget) noexcept;
+        [[nodiscard]] HRESULT PaintSelection(const SMALL_RECT rect) noexcept;
 
-        [[nodiscard]] HRESULT PaintCursor(const CursorOptions& options) noexcept override;
+        [[nodiscard]] HRESULT PaintCursor(const CursorOptions& options) noexcept;
 
         [[nodiscard]] HRESULT UpdateDrawingBrushes(const TextAttribute& textAttributes,
                                                    const gsl::not_null<IRenderData*> pData,
-                                                   const bool isSettingDefaultBrushes) noexcept override;
+                                                   const bool isSettingDefaultBrushes) noexcept;
         [[nodiscard]] HRESULT UpdateFont(const FontInfoDesired& FontInfoDesired,
                                          _Out_ FontInfo& FontInfo) noexcept override;
         [[nodiscard]] HRESULT UpdateDpi(const int iDpi) noexcept override;
-        [[nodiscard]] HRESULT UpdateViewport(const SMALL_RECT srNewViewport) noexcept override;
 
         [[nodiscard]] HRESULT GetProposedFont(const FontInfoDesired& FontDesired,
                                               _Out_ FontInfo& Font,
@@ -76,7 +76,9 @@ namespace Microsoft::Console::Render
         [[nodiscard]] HRESULT IsGlyphWideByFont(const std::wstring_view glyph, _Out_ bool* const pResult) noexcept override;
 
     protected:
-        [[nodiscard]] HRESULT _DoUpdateTitle(_In_ const std::wstring_view newTitle) noexcept override;
+        void GdiEngine::_PaintBufferLineHelper(const BufferLineRenderData& renderData);
+
+        [[nodiscard]] HRESULT _UpdateTitle(const std::wstring_view newTitle) noexcept;
 
     private:
         HWND _hwndTargetWindow;

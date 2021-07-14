@@ -45,8 +45,6 @@ namespace Microsoft::Console::Render
 
         virtual ~VtEngine() override = default;
 
-        [[nodiscard]] HRESULT InvalidateSelection(const std::vector<SMALL_RECT>& rectangles) noexcept override;
-        [[nodiscard]] virtual HRESULT InvalidateScroll(const COORD* const pcoordDelta) noexcept = 0;
         [[nodiscard]] HRESULT InvalidateSystem(const RECT* const prcDirtyClient) noexcept override;
         [[nodiscard]] HRESULT Invalidate(const SMALL_RECT* const psrRegion) noexcept override;
         [[nodiscard]] HRESULT InvalidateCursor(const SMALL_RECT* const psrRegion) noexcept override;
@@ -55,23 +53,19 @@ namespace Microsoft::Console::Render
         [[nodiscard]] HRESULT PrepareForTeardown(_Out_ bool* const pForcePaint) noexcept override;
 
         [[nodiscard]] virtual HRESULT StartPaint() noexcept override;
+        [[nodiscard]] virtual HRESULT PaintFrame(IRenderData* pdata) noexcept override;
+
         [[nodiscard]] virtual HRESULT EndPaint() noexcept override;
         [[nodiscard]] virtual HRESULT Present() noexcept override;
 
         [[nodiscard]] virtual HRESULT ScrollFrame() noexcept = 0;
 
-        [[nodiscard]] HRESULT PaintBackground() noexcept override;
         [[nodiscard]] virtual HRESULT PaintBufferLine(gsl::span<const Cluster> const clusters,
                                                       const COORD coord,
                                                       const bool trimLeft,
-                                                      const bool lineWrapped) noexcept override;
-        [[nodiscard]] HRESULT PaintBufferGridLines(const GridLines lines,
-                                                   const COLORREF color,
-                                                   const size_t cchLine,
-                                                   const COORD coordTarget) noexcept override;
-        [[nodiscard]] HRESULT PaintSelection(const SMALL_RECT rect) noexcept override;
+                                                      const bool lineWrapped) noexcept;
 
-        [[nodiscard]] virtual HRESULT PaintCursor(const CursorOptions& options) noexcept override;
+        [[nodiscard]] virtual HRESULT PaintCursor(const CursorOptions& options) noexcept;
 
         [[nodiscard]] virtual HRESULT UpdateDrawingBrushes(const TextAttribute& textAttributes,
                                                            const gsl::not_null<IRenderData*> pData,
@@ -79,7 +73,8 @@ namespace Microsoft::Console::Render
         [[nodiscard]] HRESULT UpdateFont(const FontInfoDesired& pfiFontInfoDesired,
                                          _Out_ FontInfo& pfiFontInfo) noexcept override;
         [[nodiscard]] HRESULT UpdateDpi(const int iDpi) noexcept override;
-        [[nodiscard]] HRESULT UpdateViewport(const SMALL_RECT srNewViewport) noexcept override;
+        COORD UpdateViewport(IRenderData* pData) noexcept override;
+        COORD UpdateViewport(const SMALL_RECT srNewViewport) noexcept;
 
         [[nodiscard]] HRESULT GetProposedFont(const FontInfoDesired& FontDesired,
                                               _Out_ FontInfo& Font,
@@ -117,8 +112,6 @@ namespace Microsoft::Console::Render
 
         TextAttribute _lastTextAttributes;
 
-        Microsoft::Console::Types::Viewport _lastViewport;
-
         std::pmr::unsynchronized_pool_resource _pool;
         til::pmr::bitmap _invalidMap;
 
@@ -152,6 +145,8 @@ namespace Microsoft::Console::Render
 
         bool _resizeQuirk{ false };
         std::optional<TextColor> _newBottomLineBG{ std::nullopt };
+
+        void _PaintBufferLineHelper(const BufferLineRenderData& renderData);
 
         [[nodiscard]] HRESULT _Write(std::string_view const str) noexcept;
         [[nodiscard]] HRESULT _Flush() noexcept;
@@ -232,8 +227,6 @@ namespace Microsoft::Console::Render
 
         [[nodiscard]] HRESULT _WriteTerminalUtf8(const std::wstring_view str) noexcept;
         [[nodiscard]] HRESULT _WriteTerminalAscii(const std::wstring_view str) noexcept;
-
-        [[nodiscard]] virtual HRESULT _DoUpdateTitle(const std::wstring_view newTitle) noexcept override;
 
         /////////////////////////// Unit Testing Helpers ///////////////////////////
 #ifdef UNIT_TESTING
