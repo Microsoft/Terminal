@@ -159,6 +159,8 @@ namespace winrt::Microsoft::Terminal::Control::implementation
             // Initialize our font with the renderer
             // We don't have to care about DPI. We'll get a change message immediately if it's not 96
             // and react accordingly.
+            dxEngine->SetFontFeatures(_fontFeatures);
+            dxEngine->SetFontAxes(_fontAxes);
             _updateFont(true);
 
             const COORD windowSize{ static_cast<short>(windowWidth),
@@ -505,6 +507,24 @@ namespace winrt::Microsoft::Terminal::Control::implementation
         const auto fontFace = _settings.FontFace();
         const short fontHeight = ::base::saturated_cast<short>(_settings.FontSize());
         const auto fontWeight = _settings.FontWeight();
+        const auto fontFeatures = _settings.FontFeatures();
+        const auto fontAxes = _settings.FontAxes();
+        _fontFeatures.clear();
+        if (fontFeatures)
+        {
+            for (const auto& [tag, param] : _settings.FontFeatures())
+            {
+                _fontFeatures[tag.data()] = param;
+            }
+        }
+        _fontAxes.clear();
+        if (fontAxes)
+        {
+            for (const auto& [axis, value] : _settings.FontAxes())
+            {
+                _fontAxes[axis.data()] = value;
+            }
+        }
         // The font width doesn't terribly matter, we'll only be using the
         //      height to look it up
         // The other params here also largely don't matter.
@@ -592,6 +612,12 @@ namespace winrt::Microsoft::Terminal::Control::implementation
         const int newDpi = static_cast<int>(static_cast<double>(USER_DEFAULT_SCREEN_DPI) *
                                             _compositionScale);
 
+        if (_renderEngine)
+        {
+            // Make sure to call these before we call TriggerFontChange
+            _renderEngine->SetFontFeatures(_fontFeatures);
+            _renderEngine->SetFontAxes(_fontAxes);
+        }
         _terminal->SetFontInfo(_actualFont);
 
         // TODO: MSFT:20895307 If the font doesn't exist, this doesn't
